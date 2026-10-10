@@ -1,9 +1,19 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { RAMA_TIMEOUT_MESSAGE, ROUTE_NOT_FOUND_MESSAGE } from './api-error.js';
 
 const isApiErrorBody = (body: unknown): body is { error: string } =>
-  typeof body === 'object' && body !== null && typeof (body as { error?: unknown }).error === 'string' &&
+  typeof body === 'object' &&
+  body !== null &&
+  typeof (body as { error?: unknown }).error === 'string' &&
   !('statusCode' in body);
 
 /**

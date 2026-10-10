@@ -7,6 +7,7 @@ import type { AppConfig } from './config/app-config.js';
 import { APP_CONFIG } from './config/app-config.provider.js';
 import { AppConfigModule } from './config/config.module.js';
 import { DatabaseModule } from './database/database.module.js';
+import { ProcesosModule } from './procesos/procesos.module.js';
 import { SaludModule } from './salud/salud.module.js';
 
 @Module({
@@ -28,6 +29,7 @@ import { SaludModule } from './salud/salud.module.js';
         },
       ],
     }),
+    ProcesosModule,
     SaludModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: ApiExceptionFilter }],

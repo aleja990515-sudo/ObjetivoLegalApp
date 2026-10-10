@@ -28,7 +28,9 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<NestE
     .useValue(new ExpressLoader());
   if (options.override) builder = options.override(builder);
   const moduleRef = await builder.compile();
-  const app = configureApp(moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false, logger: false }));
+  const app = configureApp(
+    moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false, logger: false }),
+  );
   await app.init();
   return app;
 }

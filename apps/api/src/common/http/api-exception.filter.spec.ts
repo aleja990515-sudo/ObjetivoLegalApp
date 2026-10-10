@@ -23,7 +23,10 @@ describe('ApiExceptionFilter', () => {
   });
 
   it('maps unmatched routes to the legacy 404 message', () => {
-    expect(run(new NotFoundException('Cannot GET /api/x'))).toEqual({ status: 404, body: { error: 'Ruta no encontrada.' } });
+    expect(run(new NotFoundException('Cannot GET /api/x'))).toEqual({
+      status: 404,
+      body: { error: 'Ruta no encontrada.' },
+    });
   });
 
   it('flattens other HTTP exceptions to {error}', () => {
