@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mis Procesos</title>
+<meta name="description" content="Seguimiento de procesos judiciales de la oficina en la Rama Judicial de Colombia">
+<meta name="theme-color" content="#1f3a5f">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="top">
+  <a href="#/" class="brand"><img src="/icon.svg" alt="" width="28" height="28"> Mis Procesos</a>
+  <div class="top-actions" id="topActions" hidden>
+    <button class="btn ghost" id="btnRevisar" title="Revisar todos en la Rama Judicial">↻ <span class="hide-sm">Revisar todos</span></button>
+    <button class="btn ghost" id="btnSalir" title="Cerrar sesión">Salir</button>
+  </div>
+</header>
+<nav class="nav" id="nav" hidden>
+  <a href="#/" data-ruta="procesos">Procesos</a>
+  <a href="#/novedades" data-ruta="novedades">Novedades <span class="badge" id="navNovedades" hidden></span></a>
+  <a href="#/agenda" data-ruta="agenda">Agenda <span class="badge" id="navAgenda" hidden></span></a>
+</nav>
+
+<main id="app"></main>
+
+<template id="tplLogin">
+  <section class="card narrow">
+    <h1>Ingresar</h1>
+    <p class="muted">Usa la clave compartida de la oficina.</p>
+    <form id="formLogin" class="stack">
+      <label>Tu nombre <input name="nombre" autocomplete="name" required maxlength="60"></label>
+      <label>Clave de la oficina <input name="clave" type="password" autocomplete="current-password" required></label>
+      <button class="btn primary" type="submit">Entrar</button>
+      <p class="error" id="loginError" role="alert"></p>
+    </form>
+  </section>
+</template>
+
+<template id="tplLista">
+  <section class="card">
+    <form id="formAgregar" class="add">
+      <label class="grow">Radicado (23 dígitos)
+        <input name="radicado" inputmode="numeric" placeholder="11001310300120190012300" required>
+      </label>
+      <label class="grow">Nombre interno (opcional)
+        <input name="alias" placeholder="Ej. Cliente Pérez – ejecutivo" maxlength="120">
+      </label>
+      <button class="btn primary" type="submit">Agregar</button>
+    </form>
+    <p class="error" id="addError" role="alert"></p>
+  </section>
+  <div class="toolbar">
+    <input id="filtro" type="search" placeholder="Filtrar por radicado, nombre, parte, despacho o etiqueta…">
+    <select id="filtroResp" aria-label="Responsable"><option value="">Todos los responsables</option></select>
+    <label class="check"><input type="checkbox" id="soloNuevas"> Solo con novedades</label>
+  </div>
+  <p class="muted small" id="estado"></p>
+  <ul id="lista" class="lista"></ul>
+</template>
+
+<template id="tplNovedades">
+  <div class="row-between">
+    <h1>Novedades</h1>
+    <span class="muted small">Actuaciones nuevas aún no revisadas por la oficina</span>
+  </div>
+  <ul id="novedades" class="lista"></ul>
+</template>
+
+<template id="tplAgenda">
+  <div class="row-between">
+    <h1>Agenda de la oficina</h1>
+    <label class="check"><input type="checkbox" id="verHechas"> Ver realizadas</label>
+  </div>
+  <section class="card">
+    <h2>Llevar la agenda a tu calendario</h2>
+    <p class="small muted">Suscríbete una vez y los términos de todos los procesos aparecerán en tu calendario del celular o del PC, con recordatorio un día antes. Google Calendar actualiza la suscripción cada pocas horas.</p>
+    <div class="acciones">
+      <a class="btn" id="icsGoogle" target="_blank" rel="noopener">Agregar a Google Calendar</a>
+      <a class="btn" id="icsWebcal">Agregar a Outlook / iPhone</a>
+      <button class="btn" id="icsCopiar" type="button">Copiar enlace</button>
+    </div>
+    <p class="small muted">El enlace da acceso a la agenda sin clave: compártelo solo con la oficina.</p>
+  </section>
+  <div id="agenda"></div>
+</template>
+
+<template id="tplDetalle">
+  <a href="#/" class="back">← Volver</a>
+  <section class="card" id="cabecera"></section>
+  <div class="grid2">
+    <section class="card">
+      <div class="row-between"><h2>Agenda y términos</h2></div>
+      <ul id="tareas" class="tareas"></ul>
+      <details id="nuevaTarea" class="nueva-tarea">
+        <summary class="btn">+ Agendar actividad o término</summary>
+        <form id="formTarea" class="stack">
+          <label>Actividad <input name="titulo" required maxlength="200" placeholder="Ej. Vence término para contestar demanda"></label>
+          <div class="fila">
+            <label>Fecha <input name="fecha" type="date" required></label>
+            <label>Hora (opcional) <input name="hora" type="time"></label>
+          </div>
+          <fieldset class="calc">
+            <legend>Calcular fecha en días hábiles</legend>
+            <div class="fila">
+              <label>Desde <input name="desde" type="date"></label>
+              <label>Días hábiles <input name="dias" type="number" min="1" max="365" placeholder="10"></label>
+              <button class="btn" type="button" id="btnCalcular">Calcular</button>
+            </div>
+            <p class="small muted" id="calcInfo">Cuenta desde el día siguiente. Excluye sábados, domingos, festivos, vacancia judicial (20 dic – 10 ene) y lunes a miércoles santos. Es una ayuda: verifica suspensiones de términos o cierres del despacho.</p>
+          </fieldset>
+          <label>Responsable <input name="responsable" maxlength="60" list="listaResp"></label>
+          <input type="hidden" name="idActuacion">
+          <button class="btn primary" type="submit">Guardar en la agenda</button>
+          <p class="error" id="tareaError" role="alert"></p>
+        </form>
+      </details>
+    </section>
+    <section class="card">
+      <h2>Gestión del proceso</h2>
+      <form id="formGestion" class="stack">
+        <label>Responsable <input name="responsable" maxlength="60" list="listaResp" placeholder="¿Quién lleva el proceso?"></label>
+        <label>Etiquetas <input name="etiquetas" maxlength="200" placeholder="Separadas por coma: urgente, cliente X, laboral"></label>
+        <button class="btn" type="submit">Guardar</button>
+      </form>
+      <h2 class="mt">Notas internas</h2>
+      <form id="formNota" class="stack">
+        <textarea name="texto" rows="3" maxlength="4000" placeholder="Escribe una nota para la oficina…" required></textarea>
+        <button class="btn" type="submit">Agregar nota</button>
+      </form>
+      <ul id="notas" class="notas"></ul>
+    </section>
+  </div>
+  <section class="card">
+    <details>
+      <summary><h2 class="inline">Sujetos procesales</h2></summary>
+      <ul id="sujetos" class="sujetos"></ul>
+    </details>
+  </section>
+  <section class="card">
+    <h2>Actuaciones</h2>
+    <div class="tabs" id="tabsAct" role="tablist"></div>
+    <ol id="actuaciones" class="timeline"></ol>
+  </section>
+</template>
+
+<datalist id="listaResp"></datalist>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="/festivos.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

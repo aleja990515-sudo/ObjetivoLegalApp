@@ -1,0 +1,13 @@
+{
+  "name": "seguimiento-procesos",
+  "version": "1.0.0",
+  "description": "Seguimiento de procesos de la Rama Judicial de Colombia para una oficina",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
