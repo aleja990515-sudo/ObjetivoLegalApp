@@ -1,0 +1,39 @@
+# Local PostgreSQL for the NestJS API (apps/api). Works with `podman compose`
+# (and `docker compose`). Credentials are local-only development defaults.
+#   db       -> development database, persisted in the `pgdata` named volume
+#   db-test  -> throwaway database for integration/e2e tests (tmpfs, no volume)
+services:
+  db:
+    image: docker.io/library/postgres:17-alpine
+    environment:
+      POSTGRES_USER: objetivo
+      POSTGRES_PASSWORD: objetivo
+      POSTGRES_DB: objetivo
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U objetivo -d objetivo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  db-test:
+    image: docker.io/library/postgres:17-alpine
+    environment:
+      POSTGRES_USER: objetivo
+      POSTGRES_PASSWORD: objetivo
+      POSTGRES_DB: objetivo_test
+    ports:
+      - "127.0.0.1:5434:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U objetivo -d objetivo_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
