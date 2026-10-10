@@ -1,12 +1,14 @@
 import { BadRequestException, HttpStatus, Logger, NotFoundException, type ArgumentsHost } from '@nestjs/common';
 import { ApiError } from './api-error.js';
 import { ApiExceptionFilter } from './api-exception.filter.js';
+import type { UnmatchedRouteResponder } from './unmatched-route.js';
 
-function run(exception: unknown) {
+function run(exception: unknown, responder?: UnmatchedRouteResponder) {
   const res = { headersSent: false, status: vi.fn(), json: vi.fn() };
   res.status.mockReturnValue(res);
-  const host = { switchToHttp: () => ({ getResponse: () => res }) } as unknown as ArgumentsHost;
-  new ApiExceptionFilter().catch(exception, host);
+  const req = { headers: {} };
+  const host = { switchToHttp: () => ({ getResponse: () => res, getRequest: () => req }) } as unknown as ArgumentsHost;
+  new ApiExceptionFilter(responder).catch(exception, host);
   return { status: res.status.mock.calls[0]?.[0], body: res.json.mock.calls[0]?.[0] };
 }
 
@@ -24,6 +26,18 @@ describe('ApiExceptionFilter', () => {
 
   it('maps unmatched routes to the legacy 404 message', () => {
     expect(run(new NotFoundException('Cannot GET /api/x'))).toEqual({
+      status: 404,
+      body: { error: 'Ruta no encontrada.' },
+    });
+  });
+
+  it('lets the unmatched-route responder replace the 404', () => {
+    const responder = { respond: () => ({ status: 401, message: 'Inicia sesión.' }) };
+    expect(run(new NotFoundException('Cannot GET /api/x'), responder)).toEqual({
+      status: 401,
+      body: { error: 'Inicia sesión.' },
+    });
+    expect(run(new NotFoundException('Cannot GET /api/x'), { respond: () => null })).toEqual({
       status: 404,
       body: { error: 'Ruta no encontrada.' },
     });

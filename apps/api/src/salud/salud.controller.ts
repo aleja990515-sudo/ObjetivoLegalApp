@@ -1,5 +1,6 @@
 import { All, Controller, HttpCode } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { Public } from '../auth/infrastructure/http/public.decorator.js';
 import type { DataSource } from 'typeorm';
 import { LEGACY_DEFAULT_PASSWORD, type AppConfig } from '../config/app-config.js';
 import { InjectAppConfig } from '../config/app-config.provider.js';
@@ -12,6 +13,7 @@ export interface SaludResponse {
 }
 
 /** Public diagnostics endpoint; accepts any method like the legacy API. */
+@Public()
 @Controller('salud')
 export class SaludController {
   constructor(

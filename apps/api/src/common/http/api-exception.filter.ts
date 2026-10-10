@@ -4,11 +4,15 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Inject,
+  Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { RAMA_TIMEOUT_MESSAGE, ROUTE_NOT_FOUND_MESSAGE } from './api-error.js';
+import { UNMATCHED_ROUTE_RESPONDER, type UnmatchedRouteResponder } from './unmatched-route.js';
 
 const isApiErrorBody = (body: unknown): body is { error: string } =>
   typeof body === 'object' &&
@@ -19,28 +23,38 @@ const isApiErrorBody = (body: unknown): body is { error: string } =>
 /**
  * Renders every error as `{ error: string }`, like the legacy API:
  * - {@link ApiError} keeps its status and message;
- * - unmatched routes become 404 "Ruta no encontrada.";
+ * - unmatched routes become 404 "Ruta no encontrada." (or what the optional
+ *   {@link UnmatchedRouteResponder} decides, e.g. 401 without a session);
  * - other HTTP exceptions keep their status with their message;
  * - anything else (CPNU failures, timeouts, bugs) becomes 502 with the error message,
  *   or the legacy timeout message for `TimeoutError`.
  */
 @Catch()
+@Injectable()
 export class ApiExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger('ApiExceptionFilter');
 
+  constructor(
+    @Optional() @Inject(UNMATCHED_ROUTE_RESPONDER) private readonly unmatchedRoute?: UnmatchedRouteResponder,
+  ) {}
+
   catch(exception: unknown, host: ArgumentsHost): void {
-    const res = host.switchToHttp().getResponse<Response>();
-    const { status, message } = this.describe(exception);
+    const http = host.switchToHttp();
+    const res = http.getResponse<Response>();
+    const { status, message } = this.describe(exception, http.getRequest<Request>());
     if (res.headersSent) return;
     res.status(status).json({ error: message });
   }
 
-  protected describe(exception: unknown): { status: number; message: string } {
+  protected describe(exception: unknown, req: Request): { status: number; message: string } {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const body = exception.getResponse();
       if (isApiErrorBody(body)) return { status, message: body.error };
-      if (exception instanceof NotFoundException) return { status, message: ROUTE_NOT_FOUND_MESSAGE };
+      if (exception instanceof NotFoundException) {
+        // Only Nest's router throws a bare NotFoundException; our code throws ApiError.
+        return this.unmatchedRoute?.respond(req) ?? { status, message: ROUTE_NOT_FOUND_MESSAGE };
+      }
       return { status, message: httpMessage(body, exception.message) };
     }
     this.logger.error(exception instanceof Error ? (exception.stack ?? exception.message) : String(exception));

@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { DEFAULT_PUBLIC_DIR } from './app.paths.js';
+import { AuthModule } from './auth/auth.module.js';
 import { ApiExceptionFilter } from './common/http/api-exception.filter.js';
+import { TimeModule } from './common/time/sleep.js';
 import type { AppConfig } from './config/app-config.js';
 import { APP_CONFIG } from './config/app-config.provider.js';
 import { AppConfigModule } from './config/config.module.js';
@@ -13,7 +15,9 @@ import { SaludModule } from './salud/salud.module.js';
 @Module({
   imports: [
     AppConfigModule,
+    TimeModule,
     DatabaseModule,
+    AuthModule,
     // Static frontend (`public/`) with SPA fallback to index.html for every
     // non-API GET, like the legacy server.js.
     ServeStaticModule.forRootAsync({

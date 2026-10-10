@@ -53,8 +53,9 @@ describe('HTTP shell (e2e)', () => {
     });
 
     it('never falls back to index.html under /api', async () => {
-      const res = await request(app.getHttpServer()).get('/api/no-existe').expect(404);
-      expect(res.body).toEqual({ error: 'Ruta no encontrada.' });
+      // Without a session an unknown API path answers 401 like the legacy server (see auth e2e).
+      const res = await request(app.getHttpServer()).get('/api/no-existe').expect(401);
+      expect(res.body).toEqual({ error: 'Inicia sesión.' });
     });
   });
 
