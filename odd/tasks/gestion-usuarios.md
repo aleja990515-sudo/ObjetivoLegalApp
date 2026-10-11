@@ -8,7 +8,7 @@ Administrator-only user management with roles. Roles live in a join table; the `
 ## Decisions (user, 2026-10-11)
 - Fixed role list: `administrador` and `usuario`. No role creation from the app.
 - Roles are modelled as: `roles(id, nombre unique)` seeded with the two rows by migration, and `usuario_roles(usuario_id FK, rol_id FK, asignado_en, asignado_por FK nullable, PK(usuario_id, rol_id))`. `usuarios` gets no role column.
-- Every account has the `usuario` role implicitly? NO: roles are explicit rows. Accounts created before this change get the `usuario` role by migration (all existing accounts), so the app keeps working for current users.
+- Roles are explicit rows, never implied. The migration gives the `usuario` role to every account that exists at migration time, so current users keep access. New accounts get `usuario` on creation or activation (decide in U1 and record it here).
 - Roles are read from the database on each protected request (not stored in the session cookie), so a role change or deactivation applies immediately.
 - Bootstrap: CLI `users:role-add <correo> administrador` and `users:role-remove <correo> administrador`. No password argument.
 - Safety rules: an administrator cannot remove their own `administrador` role, cannot deactivate their own account, and the system refuses any change that would leave zero active administrators.
