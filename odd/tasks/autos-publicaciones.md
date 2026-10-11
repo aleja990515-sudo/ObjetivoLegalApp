@@ -46,3 +46,8 @@ Delegate phase R to one read-only research worker.
 - robots.txt disallows `/documents/`, `/c/document_library/`, `/dtd/` (all PDFs live under `/c/document_library/`). Search and detail pages are allowed. Terms of use page not readable by curl: unverified.
 - Risks: Liferay HTML and portlet instance id `BIyXQFHVaYaq` can change; file naming is per-clerk habit, not a standard; PDFs contain third-party data.
 - Recommendation: GO for phase P with conditions: the server only reads search/detail pages and returns the PDF link; it never fetches, stores or proxies the PDF (the user's browser opens it). Cache results hard, pace like CPNU. Phase P must test a second despacho with different file naming.
+
+## Phase P decision (user, 2026-10-11)
+- GO for phase P with the phase R conditions: server reads only search and detail pages and returns PDF links; it never fetches, stores or proxies PDFs.
+- Second despacho for the proof: radicado 05001400302120250133300 (despacho code 050014003021). Regression: 05001311001520260010000.
+- Budget: at most 80 portal requests across both cases, at least 2 s apart, throwaway script in the scratchpad only.
