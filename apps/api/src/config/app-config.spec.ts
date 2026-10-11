@@ -50,4 +50,14 @@ describe('loadAppConfig', () => {
     expect(config.sessionSecret).toBeNull();
     expect(config.cronSecret).toBeNull();
   });
+
+  it('accepts DATA_ENCRYPTION_KEY only as base64 of 32 bytes', () => {
+    const clave = Buffer.alloc(32, 7).toString('base64');
+    expect(loadAppConfig({ ...base, DATA_ENCRYPTION_KEY: clave }).dataEncryptionKey).toBe(clave);
+    expect(loadAppConfig(base).dataEncryptionKey).toBeNull();
+    expect(() => loadAppConfig({ ...base, DATA_ENCRYPTION_KEY: 'corta' })).toThrow(/DATA_ENCRYPTION_KEY/);
+    expect(() => loadAppConfig({ ...base, DATA_ENCRYPTION_KEY: Buffer.alloc(16).toString('base64') })).toThrow(
+      /DATA_ENCRYPTION_KEY/,
+    );
+  });
 });

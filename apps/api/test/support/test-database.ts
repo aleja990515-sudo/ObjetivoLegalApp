@@ -17,5 +17,5 @@ export async function createTestDataSource(): Promise<DataSource> {
 
 /** Empties every application table (keeps the migrations table). */
 export async function truncateAll(dataSource: DataSource): Promise<void> {
-  await dataSource.query('TRUNCATE procesos, actuaciones, sujetos, notas, tareas, meta RESTART IDENTITY CASCADE');
+  await dataSource.query('TRUNCATE procesos, actuaciones, sujetos, notas, tareas, meta, usuarios RESTART IDENTITY CASCADE');
 }

@@ -18,11 +18,13 @@ export interface AppConfig {
   publicDir: string | null;
   database: DatabaseConfig;
   appPassword: string;
+  /** 32-byte key (base64) for AES-256-GCM and the lookup index of personal data; `null` when unset. */
+  dataEncryptionKey: string | null;
   sessionSecret: string | null;
   cronSecret: string | null;
   /** Cron expression (UTC) for the automatic review, or `null` when disabled. */
   revisionCron: string | null;
-  /** Set by Vercel; kept for legacy-compatible behaviour (Secure cookie, login 503, /salud region). */
+  /** Set by Vercel: Secure cookie and the client IP taken from `x-forwarded-for`. */
   vercel: boolean;
   vercelRegion: string | null;
 }
@@ -57,6 +59,12 @@ function bool(env: Env, key: string, fallback: boolean, errors: string[]): boole
 /** Five or six whitespace-separated fields; fine-grained parsing is left to the cron library. */
 const CRON_SHAPE = /^\S+(\s+\S+){4,5}$/;
 
+/** True when the value is the canonical base64 encoding of exactly 32 bytes. */
+export function isDataKey(value: string): boolean {
+  const bytes = Buffer.from(value, 'base64');
+  return bytes.length === 32 && bytes.toString('base64') === value;
+}
+
 /**
  * Validates the raw environment and returns the typed configuration.
  * Throws a single error listing every invalid variable.
@@ -80,6 +88,11 @@ export function loadAppConfig(env: Env): AppConfig {
     errors.push('REVISION_CRON must be a cron expression or "off"');
   }
 
+  const dataKey = blank(env.DATA_ENCRYPTION_KEY);
+  if (dataKey !== null && !isDataKey(dataKey)) {
+    errors.push('DATA_ENCRYPTION_KEY must be 32 random bytes in base64');
+  }
+
   const config: AppConfig = {
     port: positiveInt(env, 'PORT', 3000, errors),
     nodeEnv: blank(env.NODE_ENV) ?? 'development',
@@ -90,8 +103,9 @@ export function loadAppConfig(env: Env): AppConfig {
       poolMax: positiveInt(env, 'DATABASE_POOL_MAX', 5, errors),
       migrationsRun: bool(env, 'DATABASE_MIGRATIONS_RUN', true, errors),
     },
-    // Not trimmed: the password is compared byte for byte like the legacy server.
+    // Legacy shared password: still used by AuthService until the login change (U3).
     appPassword: env.APP_PASSWORD || LEGACY_DEFAULT_PASSWORD,
+    dataEncryptionKey: dataKey,
     sessionSecret: env.SESSION_SECRET || null,
     cronSecret: env.CRON_SECRET || null,
     revisionCron,
