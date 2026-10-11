@@ -1,6 +1,10 @@
 # Feature: usuarios-auth
 
-Locator: `odd/tasks/usuarios-auth.md` · Engram mirror: `odd/usuarios-auth/tasks` · Branch: to be created from `feat/nestjs-backend` after the frontend chain is checked, or as a sub-chain (decide at delegation time; default: stack on `feat/nestjs-backend`).
+Locator: `odd/tasks/usuarios-auth.md` · Engram mirror: `odd/usuarios-auth/tasks` · Branch: `feat/usuarios-auth` (chained on `feat/nextjs-frontend`, which is chained on `feat/nestjs-backend`).
+
+## Workflow (user decision 2026-10-11)
+- TDD is OFF for this feature: no RED-first requirement. Checks (tests, typecheck, lint, build, e2e, live smoke) still run and must pass before each commit.
+- Login form change in `apps/web` is included, so the browser login works end to end.
 
 ## Objective
 Replace the single shared office password with real accounts stored in PostgreSQL. The shared `APP_PASSWORD` becomes the password of one test account only.
@@ -48,6 +52,7 @@ Replace the single shared office password with real accounts stored in PostgreSQ
 
 ## Progress / Evidence
 - 2026-10-11: decisions recorded (above), document created.
+- 2026-10-11: user approved encrypted personal data and self-registration with manual activation.
 
 ## Next step
-After the frontend F1–F2 writer finishes: delegate U1–U6 on the backend branch.
+Delegate U1–U6 (writer) on `feat/usuarios-auth`.
