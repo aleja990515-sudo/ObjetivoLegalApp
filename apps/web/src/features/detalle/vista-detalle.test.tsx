@@ -91,6 +91,21 @@ describe('VistaDetalle', () => {
     expect(patch?.cuerpo).toEqual({ hecha: true });
   });
 
+  it('alterna la tarea al tocar la fila, no solo la casilla', async () => {
+    const hecha = detalle({
+      tareas: [{ ...detalle().tareas[0], hecha: true, hechaPor: 'Ana' }],
+    });
+    const llamadas = stubDetalle(detalle(), { 'PATCH /api/procesos/1/tareas/t1': hecha });
+    render(<VistaDetalle id="1" />);
+    await screen.findByRole('checkbox', { name: 'Marcar como realizada: Contestar demanda' });
+
+    // La fila es etiqueta implicita de la casilla: el texto debe invertirla.
+    fireEvent.click(screen.getByText('Contestar demanda'));
+
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Marcar como realizada: Contestar demanda' })).toBeChecked());
+    expect(llamadas.find((l) => l.metodo === 'PATCH')?.url).toBe('/api/procesos/1/tareas/t1');
+  });
+
   it('pide confirmación antes de quitar el proceso y no llama a la API si se cancela', async () => {
     const llamadas = stubDetalle(detalle());
     render(<VistaDetalle id="1" />);

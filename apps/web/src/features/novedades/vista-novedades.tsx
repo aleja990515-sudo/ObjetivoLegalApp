@@ -1,10 +1,11 @@
 'use client';
 
 import { CheckCircle } from '@phosphor-icons/react';
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { EstadoError, EstadoVacio } from '@/components/estado/estado';
+import { FilaEnlazada } from '@/components/fila-enlazada/fila-enlazada';
 import { PageHeader } from '@/components/page-header/page-header';
+import { Tarjeta } from '@/components/tarjeta/tarjeta';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { esProvidencia, fecha, fmtRadicado } from '@/features/procesos/formato';
@@ -43,14 +44,14 @@ export function VistaNovedades() {
       {estado.tipo === 'cargando' && <SkeletonNovedades />}
       {estado.tipo === 'error' && <EstadoError mensaje={estado.mensaje} />}
       {estado.tipo === 'lista' && estado.novedades.length === 0 && (
-        <div className="rounded-lg border border-line bg-card">
+        <Tarjeta variante="vacio">
           <EstadoVacio icono={CheckCircle} titulo="No hay novedades pendientes">
             Cuando la Rama registre actuaciones nuevas o aparezca una nueva instancia, se mostrarán aquí hasta que las marques como revisadas.
           </EstadoVacio>
-        </div>
+        </Tarjeta>
       )}
       {estado.tipo === 'lista' && estado.novedades.length > 0 && (
-        <ul className="m-0 grid list-none gap-3 p-0">
+        <ul className="m-0 grid list-none gap-2 p-0">
           {estado.novedades.map((novedad, indice) => (
             <TarjetaNovedad key={`${novedad.idProceso}-${novedad.tipo}-${indice}`} novedad={novedad} />
           ))}
@@ -68,12 +69,7 @@ function TarjetaNovedad({ novedad: n }: { novedad: Novedad }) {
   return (
     <li className="relative rounded-lg border border-line bg-card p-4 hover:bg-surface-sunken focus-within:bg-surface-sunken">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link
-          href={`/procesos/${n.idProceso}`}
-          className="font-semibold text-foreground no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
-        >
-          {nombre}
-        </Link>
+        <FilaEnlazada href={`/procesos/${n.idProceso}`}>{nombre}</FilaEnlazada>
         {esInstancia ? <Badge>Nueva instancia</Badge> : <Badge variant={providencia ? 'default' : 'secondary'}>{providencia ? 'Auto / providencia' : 'Actuación'}</Badge>}
       </div>
       <p className="m-0 mt-1 font-mono text-xs text-muted-foreground tabular-nums">{fmtRadicado(n.radicado)}</p>
@@ -95,14 +91,14 @@ function TarjetaNovedad({ novedad: n }: { novedad: Novedad }) {
 
 function SkeletonNovedades() {
   return (
-    <div role="status" aria-live="polite" className="grid gap-3">
+    <div role="status" aria-live="polite" className="grid gap-2">
       <span className="sr-only">Cargando novedades…</span>
       {[0, 1, 2].map((i) => (
-        <div key={i} aria-hidden="true" className="grid gap-2 rounded-lg border border-line bg-card p-4">
+        <Tarjeta key={i} className="grid gap-2" aria-hidden="true">
           <Skeleton className={i % 2 ? 'h-4 w-2/5' : 'h-4 w-1/2'} />
           <Skeleton className="h-3 w-1/3" />
           <Skeleton className="h-4 w-4/5" />
-        </div>
+        </Tarjeta>
       ))}
     </div>
   );

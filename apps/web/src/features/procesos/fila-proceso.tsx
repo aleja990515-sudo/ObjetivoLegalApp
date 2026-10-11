@@ -1,6 +1,6 @@
 import { CalendarBlank, User } from '@phosphor-icons/react';
-import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { FilaEnlazada } from '@/components/fila-enlazada/fila-enlazada';
 import { cn } from '@/lib/utils';
 import { fecha, fmtRadicado } from './formato';
 import type { ProcesoResumen } from './modelo';
@@ -11,7 +11,7 @@ interface Props {
   hoy: string;
 }
 
-const CELDA = 'block px-4 py-1 min-[640px]:table-cell min-[640px]:px-3 min-[640px]:py-3.5 min-[640px]:align-top';
+const CELDA = 'block break-words px-4 py-1 min-[640px]:table-cell min-[640px]:px-3 min-[640px]:py-3.5 min-[640px]:align-top';
 const ETIQUETA_MOVIL = 'mb-0.5 block text-xs text-muted-foreground min-[640px]:sr-only';
 
 /**
@@ -32,14 +32,9 @@ export function FilaProceso({ proceso: p, hoy }: Props) {
       )}
     >
       <td className={cn(CELDA, 'min-[640px]:w-[34%]')}>
-        <Link
-          href={`/procesos/${p.idProceso}`}
-          className="font-semibold text-foreground no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
-        >
-          {p.alias || p.despacho || 'Proceso'}
-        </Link>
+        <FilaEnlazada href={`/procesos/${p.idProceso}`}>{p.alias || p.despacho || 'Proceso'}</FilaEnlazada>
         <div className="font-mono text-xs text-muted-foreground tabular-nums">{fmtRadicado(p.radicado)}</div>
-        {p.sujetos && <div className="mt-0.5 truncate text-xs text-muted-foreground">{p.sujetos}</div>}
+        {p.sujetos && <div className="mt-0.5 line-clamp-2 break-words text-xs text-muted-foreground">{p.sujetos}</div>}
       </td>
 
       <td className={cn(CELDA, 'min-[640px]:w-[22%] min-[640px]:text-sm')}>
@@ -65,11 +60,11 @@ export function FilaProceso({ proceso: p, hoy }: Props) {
           {p.nuevaInstancia && <Badge>Nueva instancia</Badge>}
           {p.noVistas > 0 && <Badge>{p.noVistas} nueva(s)</Badge>}
           {p.tareasVencidas > 0 && <Badge variant="destructive">{p.tareasVencidas} vencida(s)</Badge>}
-          {!hayNovedad && p.tareasVencidas === 0 && <span className="text-muted-foreground">Al día</span>}
+          {!hayNovedad && p.tareasVencidas === 0 && <span className="self-center text-muted-foreground">Al día</span>}
         </div>
         {tarea && (
           <p className={cn('m-0 mt-1.5 flex items-start gap-1.5 text-xs', vencida ? 'text-destructive' : 'text-muted-foreground')}>
-            <CalendarBlank aria-hidden="true" className="mt-px size-3.5 shrink-0" />
+            <CalendarBlank aria-hidden="true" weight="regular" className="mt-px size-3.5 shrink-0" />
             <span>
               {fecha(tarea.fecha)}
               {tarea.hora ? ` ${tarea.hora}` : ''}: {tarea.titulo}
@@ -78,7 +73,7 @@ export function FilaProceso({ proceso: p, hoy }: Props) {
         )}
         {p.responsable && (
           <p className="m-0 mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <User aria-hidden="true" className="size-3.5 shrink-0" />
+            <User aria-hidden="true" weight="regular" className="size-3.5 shrink-0" />
             {p.responsable}
           </p>
         )}

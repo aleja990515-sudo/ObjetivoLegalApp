@@ -3,6 +3,8 @@
 import { CalendarPlus, Copy, DownloadSimple, EnvelopeSimple, FileText, Gavel, ShareNetwork, WhatsappLogo } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { EstadoError, EstadoVacio } from '@/components/estado/estado';
+import { Tarjeta } from '@/components/tarjeta/tarjeta';
+import { TituloSeccion } from '@/components/titulo-seccion/titulo';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { esProvidencia, fecha, fmtRadicado } from '@/features/procesos/formato';
@@ -68,10 +70,7 @@ export function Actuaciones({ proceso: p, onAgendar, onAviso }: Props) {
 
   return (
     <section aria-labelledby="titulo-actuaciones" className="grid gap-3">
-      <h2 id="titulo-actuaciones" className="m-0 flex items-center gap-2 text-base font-semibold">
-        <Gavel aria-hidden="true" className="size-5 text-muted-foreground" />
-        Actuaciones
-      </h2>
+      <TituloSeccion id="titulo-actuaciones" titulo="Actuaciones" icono={Gavel} />
 
       <div role="tablist" aria-label="Filtrar actuaciones" className="flex flex-wrap gap-1.5">
         {PESTANAS.map((t) => (
@@ -82,7 +81,7 @@ export function Actuaciones({ proceso: p, onAgendar, onAviso }: Props) {
             aria-selected={t.clave === pestana}
             onClick={() => setPestana(t.clave)}
             className={cn(
-              'rounded-pill border px-3 py-1 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+              'min-h-11 rounded-pill border px-3 py-1 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 min-[640px]:min-h-8',
               t.clave === pestana
                 ? 'border-transparent bg-accent text-accent-foreground'
                 : 'border-line bg-card text-muted-foreground hover:text-foreground',
@@ -94,14 +93,14 @@ export function Actuaciones({ proceso: p, onAgendar, onAviso }: Props) {
       </div>
 
       {lista.length === 0 ? (
-        <div className="rounded-lg border border-line bg-card">
+        <Tarjeta variante="vacio">
           <EstadoVacio
             icono={FileText}
             titulo={pestana === 'autos' ? 'No hay autos ni sentencias registrados' : 'No hay actuaciones con documentos'}
           >
             Cambia de pestaña para ver todas las actuaciones.
           </EstadoVacio>
-        </div>
+        </Tarjeta>
       ) : (
         <ul aria-label="Lista de actuaciones" className="m-0 grid list-none gap-2 p-0">
           {lista.map((a) => {
@@ -113,8 +112,9 @@ export function Actuaciones({ proceso: p, onAgendar, onAviso }: Props) {
               <li
                 key={a.id}
                 className={cn(
-                  'grid gap-2 rounded-lg border border-line bg-card p-3.5',
-                  esNueva && 'border-l-[3px] border-l-primary',
+                  'grid gap-2 rounded-lg border border-line bg-card p-4',
+                  // Sombra interior: un borde de 3px desplaza el relleno y desalinea la fila.
+                  esNueva && 'shadow-[inset_3px_0_0_var(--accent)]',
                 )}
               >
                 <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -135,17 +135,19 @@ export function Actuaciones({ proceso: p, onAgendar, onAviso }: Props) {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="min-h-11 min-[640px]:min-h-8"
                       onClick={() => verDocumentos(a)}
                       disabled={docs?.estado === 'cargando' || docs?.estado === 'lista'}
                       aria-busy={docs?.estado === 'cargando'}
                     >
-                      <FileText aria-hidden="true" />
+                      <FileText aria-hidden="true" weight="regular" />
                       {docs?.estado === 'cargando' ? 'Cargando…' : 'Ver documentos'}
                     </Button>
                   )}
                   <Button
                     variant="outline"
                     size="sm"
+                    className="min-h-11 min-[640px]:min-h-8"
                     onClick={() =>
                       onAgendar({
                         titulo: `Término: ${a.actuacion ?? 'actuación'}`,
@@ -154,16 +156,17 @@ export function Actuaciones({ proceso: p, onAgendar, onAviso }: Props) {
                       })
                     }
                   >
-                    <CalendarPlus aria-hidden="true" />
+                    <CalendarPlus aria-hidden="true" weight="regular" />
                     Agendar
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
+                    className="min-h-11 min-[640px]:min-h-8"
                     aria-expanded={compartiendo === String(a.id)}
                     onClick={() => setCompartiendo((v) => (v === String(a.id) ? null : String(a.id)))}
                   >
-                    <ShareNetwork aria-hidden="true" />
+                    <ShareNetwork aria-hidden="true" weight="regular" />
                     Compartir
                   </Button>
                 </div>
@@ -171,23 +174,23 @@ export function Actuaciones({ proceso: p, onAgendar, onAviso }: Props) {
                 {compartiendo === String(a.id) && (
                   <div className="flex flex-wrap gap-1.5" role="group" aria-label="Compartir actuación">
                     <a
-                      className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                      className={buttonVariants({ variant: 'outline', size: 'sm', className: 'min-h-11 min-[640px]:min-h-8' })}
                       target="_blank"
                       rel="noopener noreferrer"
                       href={`https://wa.me/?text=${encodeURIComponent(textoCompartir(a, p))}`}
                     >
-                      <WhatsappLogo aria-hidden="true" />
+                      <WhatsappLogo aria-hidden="true" weight="regular" />
                       WhatsApp
                     </a>
                     <a
-                      className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                      className={buttonVariants({ variant: 'outline', size: 'sm', className: 'min-h-11 min-[640px]:min-h-8' })}
                       href={`mailto:?subject=${encodeURIComponent(`${a.actuacion ?? 'Actuación'}, radicado ${fmtRadicado(p.radicado)}`)}&body=${encodeURIComponent(textoCompartir(a, p).replace(/\*/g, ''))}`}
                     >
-                      <EnvelopeSimple aria-hidden="true" />
+                      <EnvelopeSimple aria-hidden="true" weight="regular" />
                       Correo
                     </a>
-                    <Button variant="outline" size="sm" onClick={() => copiar(a)}>
-                      <Copy aria-hidden="true" />
+                    <Button variant="outline" size="sm" className="min-h-11 min-[640px]:min-h-8" onClick={() => copiar(a)}>
+                      <Copy aria-hidden="true" weight="regular" />
                       Copiar
                     </Button>
                   </div>
@@ -212,7 +215,7 @@ function Documentos({ docs }: { docs: DocumentoActuacion[] }) {
     <ul aria-label="Documentos de la actuación" className="m-0 grid list-none gap-1.5 p-0">
       {docs.map((d, i) => (
         <li key={`${d.url}-${i}`} className="flex flex-wrap items-center gap-x-2 text-sm">
-          <DownloadSimple aria-hidden="true" className="size-4 text-muted-foreground" />
+          <DownloadSimple aria-hidden="true" weight="regular" className="size-4 text-muted-foreground" />
           <a href={d.url} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline-offset-4 hover:underline">
             {d.nombre} ({String(d.tipo || 'archivo').toUpperCase()})
           </a>

@@ -13,9 +13,9 @@ export function EstadoVacio({ icono: Icono, titulo, children }: PropsVacio) {
   return (
     <div className="grid justify-items-center gap-2 px-4 py-10 text-center">
       <span className="grid size-12 place-items-center rounded-full bg-muted text-muted-foreground">
-        <Icono aria-hidden="true" className="size-6" />
+        <Icono aria-hidden="true" weight="regular" className="size-6" />
       </span>
-      <p className="m-0 mt-1 font-medium text-foreground">{titulo}</p>
+      <p className="m-0 font-medium text-foreground">{titulo}</p>
       {children && <p className="m-0 max-w-[46ch] text-sm text-muted-foreground">{children}</p>}
     </div>
   );
@@ -25,7 +25,7 @@ export function EstadoVacio({ icono: Icono, titulo, children }: PropsVacio) {
 export function EstadoError({ mensaje }: { mensaje: string }) {
   return (
     <p role="alert" className="m-0 flex items-start gap-2 text-sm text-destructive">
-      <WarningCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+      <WarningCircle aria-hidden="true" weight="regular" className="mt-0.5 size-4 shrink-0" />
       <span>{mensaje}</span>
     </p>
   );

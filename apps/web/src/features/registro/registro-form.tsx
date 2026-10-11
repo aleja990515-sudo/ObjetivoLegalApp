@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
+import { Casilla } from '@/components/casilla/casilla';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -89,7 +90,6 @@ export function RegistroForm() {
           required
           value={nombreCompleto}
           onChange={(e) => setNombreCompleto(e.target.value)}
-          className="min-h-11 rounded-md border-line-input bg-surface px-3 text-base md:text-sm"
         />
       </div>
       <div className="grid gap-1.5">
@@ -101,7 +101,6 @@ export function RegistroForm() {
           required
           value={cedula}
           onChange={(e) => setCedula(e.target.value)}
-          className="min-h-11 rounded-md border-line-input bg-surface px-3 text-base md:text-sm"
         />
       </div>
       <div className="grid gap-1.5">
@@ -114,7 +113,6 @@ export function RegistroForm() {
           required
           value={correo}
           onChange={(e) => setCorreo(e.target.value)}
-          className="min-h-11 rounded-md border-line-input bg-surface px-3 text-base md:text-sm"
         />
       </div>
       <div className="grid gap-1.5">
@@ -128,7 +126,6 @@ export function RegistroForm() {
           required
           value={celular}
           onChange={(e) => setCelular(e.target.value)}
-          className="min-h-11 rounded-md border-line-input bg-surface px-3 text-base md:text-sm"
         />
       </div>
       <div className="grid gap-1.5">
@@ -141,7 +138,6 @@ export function RegistroForm() {
           required
           value={clave}
           onChange={(e) => setClave(e.target.value)}
-          className="min-h-11 rounded-md border-line-input bg-surface px-3 text-base md:text-sm"
         />
         <p className="m-0 text-xs text-muted-foreground">Mínimo {CLAVE_MINIMA} caracteres.</p>
       </div>
@@ -155,24 +151,15 @@ export function RegistroForm() {
           required
           value={confirmacion}
           onChange={(e) => setConfirmacion(e.target.value)}
-          className="min-h-11 rounded-md border-line-input bg-surface px-3 text-base md:text-sm"
         />
       </div>
-      <label htmlFor="consentimiento" className="flex items-start gap-2.5 text-sm">
-        <input
-          id="consentimiento"
-          name="consentimiento"
-          type="checkbox"
-          checked={consentimiento}
-          onChange={(e) => setConsentimiento(e.target.checked)}
-          className="mt-1 size-4 shrink-0 accent-[var(--accent)]"
-        />
-        <span>{TEXTO_CONSENTIMIENTO}</span>
-      </label>
+      <Casilla id="consentimiento" name="consentimiento" checked={consentimiento} onChange={(e) => setConsentimiento(e.target.checked)}>
+        {TEXTO_CONSENTIMIENTO}
+      </Casilla>
       <p role="alert" className="m-0 min-h-5 text-sm text-destructive">
         {error}
       </p>
-      <Button type="submit" className="min-h-11 w-full" disabled={enviando}>
+      <Button type="submit" className="min-h-11 w-full min-[640px]:min-h-9" disabled={enviando}>
         Crear cuenta
       </Button>
       <Link href="/login" className="justify-self-center text-sm font-medium text-primary underline-offset-4 hover:underline">

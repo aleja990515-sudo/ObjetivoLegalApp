@@ -43,7 +43,7 @@ export function SessionGuard({ children }: { children: ReactNode }) {
 
   if (estado.tipo === 'cargando') {
     return (
-      <div role="status" aria-live="polite" className="grid gap-3 p-7">
+      <div role="status" aria-live="polite" className="grid gap-3">
         <span className="sr-only">Cargando…</span>
         <Skeleton className="h-7 w-40" />
         <Skeleton className="h-4 w-64" />
@@ -52,7 +52,7 @@ export function SessionGuard({ children }: { children: ReactNode }) {
   }
   if (estado.tipo === 'error') {
     return (
-      <p role="alert" className="p-7 text-sm text-destructive">
+      <p role="alert" className="text-sm text-destructive">
         No se pudo verificar la sesión. Recarga la página para intentarlo de nuevo.
       </p>
     );
