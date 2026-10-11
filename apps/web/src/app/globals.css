@@ -1,0 +1,134 @@
+/* ---------- Tokens ----------
+   Neutros frios (tipo zinc) y un solo acento esmeralda. El rojo solo indica error o vencimiento.
+   Radios: controles 8px, superficies 12px, insignias/chips/pildoras en pildora.
+   Origen: feat/ui-redesign:public/styles.css. Un solo juego de tokens para toda la app. */
+:root {
+  color-scheme: light;
+  --bg: #f4f5f7;
+  --surface: #fcfcfd;
+  --surface-sunken: #eef0f3;
+  --text: #18181b;
+  --muted: #52525b;
+  --placeholder: #6b7079;
+  --line: #e2e4e8;
+  --line-input: #8b8f98;
+  --accent: #0e7a5f;
+  --accent-hover: #0b6650;
+  --on-accent: #f7fdfb;
+  --accent-soft: #e3f3ec;
+  --accent-soft-text: #0a5c47;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --shadow: 0 1px 2px rgb(24 24 27 / 0.05), 0 4px 16px rgb(24 24 27 / 0.06);
+
+  --font-sans: var(--font-geist), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.375rem;
+
+  --r-control: 8px;
+  --r-surface: 12px;
+  --r-pill: 999px;
+
+  --sidebar-w: 240px;
+  --rail-w: 72px;
+  --top-h: 60px;
+  --tabbar-h: 64px;
+
+  --dur: 0.15s;
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111113;
+    --surface: #18181b;
+    --surface-sunken: #1f1f23;
+    --text: #ececef;
+    --muted: #a1a1aa;
+    --placeholder: #8b8b94;
+    --line: #2a2a30;
+    --line-input: #71717a;
+    --accent: #34c79a;
+    --accent-hover: #5ed3ad;
+    --on-accent: #06261c;
+    --accent-soft: #163329;
+    --accent-soft-text: #5ed3ad;
+    --danger: #f97066;
+    --danger-soft: #3a1c1a;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
+  }
+}
+
+/* ---------- Base ---------- */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+h2 {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+a {
+  color: var(--accent);
+}
+
+::placeholder {
+  color: var(--placeholder);
+  opacity: 1;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

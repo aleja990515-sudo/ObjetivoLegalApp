@@ -12,6 +12,12 @@
     "build:api": "npm run -w apps/api build",
     "start:api": "npm run -w apps/api start:prod",
     "test:api": "npm test -w apps/api",
+    "dev:web": "npm run -w apps/web dev",
+    "build:web": "npm run -w apps/web build",
+    "start:web": "npm run -w apps/web start",
+    "lint:web": "npm run -w apps/web lint",
+    "typecheck:web": "npm run -w apps/web typecheck",
+    "test:web": "npm run -w apps/web test",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down"
   },
