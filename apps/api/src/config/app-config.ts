@@ -1,7 +1,6 @@
 // Typed, validated application configuration built from environment variables.
 // Every variable is documented in the repository `.env.example`.
 
-export const LEGACY_DEFAULT_PASSWORD = 'cambiar-esta-clave';
 export const DEFAULT_REVISION_CRON = '0 11 * * *';
 
 export interface DatabaseConfig {
@@ -17,10 +16,10 @@ export interface AppConfig {
   nodeEnv: string;
   publicDir: string | null;
   database: DatabaseConfig;
-  appPassword: string;
   /** 32-byte key (base64) for AES-256-GCM and the lookup index of personal data; `null` when unset. */
   dataEncryptionKey: string | null;
-  sessionSecret: string | null;
+  /** Signs session cookies and the calendar token. Required, at least 32 characters. */
+  sessionSecret: string;
   cronSecret: string | null;
   /** Cron expression (UTC) for the automatic review, or `null` when disabled. */
   revisionCron: string | null;
@@ -93,6 +92,10 @@ export function loadAppConfig(env: Env): AppConfig {
     errors.push('DATA_ENCRYPTION_KEY must be 32 random bytes in base64');
   }
 
+  const sessionSecret = blank(env.SESSION_SECRET);
+  if (sessionSecret === null) errors.push('SESSION_SECRET is required');
+  else if (sessionSecret.length < 32) errors.push('SESSION_SECRET must be at least 32 characters');
+
   const config: AppConfig = {
     port: positiveInt(env, 'PORT', 3000, errors),
     nodeEnv: blank(env.NODE_ENV) ?? 'development',
@@ -103,10 +106,8 @@ export function loadAppConfig(env: Env): AppConfig {
       poolMax: positiveInt(env, 'DATABASE_POOL_MAX', 5, errors),
       migrationsRun: bool(env, 'DATABASE_MIGRATIONS_RUN', true, errors),
     },
-    // Legacy shared password: still used by AuthService until the login change (U3).
-    appPassword: env.APP_PASSWORD || LEGACY_DEFAULT_PASSWORD,
     dataEncryptionKey: dataKey,
-    sessionSecret: env.SESSION_SECRET || null,
+    sessionSecret: sessionSecret ?? '',
     cronSecret: env.CRON_SECRET || null,
     revisionCron,
     vercel: Boolean(env.VERCEL),

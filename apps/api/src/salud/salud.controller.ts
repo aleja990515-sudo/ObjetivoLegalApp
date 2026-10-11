@@ -2,7 +2,7 @@ import { All, Controller, HttpCode, Inject } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { Public } from '../auth/infrastructure/http/public.decorator.js';
 import type { DataSource } from 'typeorm';
-import { LEGACY_DEFAULT_PASSWORD, type AppConfig } from '../config/app-config.js';
+import type { AppConfig } from '../config/app-config.js';
 import { InjectAppConfig } from '../config/app-config.provider.js';
 import { errorMessage } from '../procesos/application/error-message.js';
 import { CPNU_PORT, type CpnuPort } from '../procesos/application/ports/cpnu.port.js';
@@ -33,7 +33,8 @@ export class SaludController {
     return {
       rama: await this.ramaStatus(),
       baseDeDatos: (await this.databaseReachable()) ? 'postgres' : 'sin configurar',
-      claveConfigurada: this.config.appPassword !== LEGACY_DEFAULT_PASSWORD,
+      // True when personal data can be encrypted, so accounts can register and log in.
+      claveConfigurada: this.config.dataEncryptionKey !== null,
       region: this.config.vercelRegion ?? 'local',
     };
   }

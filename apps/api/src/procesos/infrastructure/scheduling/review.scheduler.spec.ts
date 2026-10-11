@@ -6,7 +6,7 @@ import { REVIEW_JOB, ReviewScheduler } from './review.scheduler.js';
 
 function setup(REVISION_CRON: string, review: Partial<ReviewService> = {}) {
   const registry = new SchedulerRegistry();
-  const config = loadAppConfig({ DATABASE_URL: 'postgres://x', REVISION_CRON });
+  const config = loadAppConfig({ DATABASE_URL: 'postgres://x', SESSION_SECRET: 'x'.repeat(32), REVISION_CRON });
   const service = {
     running: false,
     reviewAll: vi.fn(async () => ({ nuevas: 0, instancias: 0, errores: 0 })),

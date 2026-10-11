@@ -8,6 +8,7 @@ import {
   type NuevaCuenta,
   type Usuario,
 } from '../../domain/usuario.js';
+import { normalizarCorreo } from '../../domain/registro.js';
 import type { UsuarioRepository } from '../../domain/usuario.repository.js';
 import { DATA_PROTECTOR, type PersonalDataProtector } from './personal-data.protector.js';
 import { UsuarioEntity } from './usuario.entity.js';
@@ -88,9 +89,4 @@ export class TypeOrmUsuarioRepository implements UsuarioRepository {
     );
     return (resultado.affected ?? 0) > 0;
   }
-}
-
-/** Forma canónica del correo antes de indexarlo. */
-export function normalizarCorreo(correo: string): string {
-  return correo.trim().toLowerCase();
 }

@@ -4,11 +4,11 @@ import { DataSource } from 'typeorm';
 import { PROCESO_REPOSITORY, type ProcesoRepository } from '../src/procesos/domain/proceso.repository.js';
 import { encontrado, FakeCpnu } from '../src/procesos/testing/fake-cpnu.js';
 import { actuacion, nota, proceso, tarea } from '../src/procesos/testing/proceso.fixtures.js';
+import { iniciarSesion } from './support/sesion.js';
 import { createTestApp } from './support/test-app.js';
 import { truncateAll } from './support/test-database.js';
 
 const RADICADO = '11001310300120190012300';
-const CLAVE = 'clave-de-prueba';
 
 describe('Procesos API contract (e2e)', () => {
   let app: NestExpressApplication;
@@ -17,16 +17,12 @@ describe('Procesos API contract (e2e)', () => {
   let cookie: string;
 
   const http = () => request(app.getHttpServer());
-  const login = async () => {
-    const res = await http().post('/api/login').send({ nombre: 'Ana', clave: CLAVE }).expect(200);
-    return res.headers['set-cookie'][0].split(';')[0];
-  };
 
   beforeAll(async () => {
     cpnu = new FakeCpnu();
     app = await createTestApp({ cpnu });
     procesos = app.get(PROCESO_REPOSITORY);
-    cookie = await login();
+    cookie = await iniciarSesion(app);
   });
 
   afterAll(async () => {

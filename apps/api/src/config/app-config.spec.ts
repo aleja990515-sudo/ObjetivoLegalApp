@@ -1,6 +1,6 @@
 import { loadAppConfig } from './app-config.js';
 
-const base = { DATABASE_URL: 'postgres://u:p@localhost:5432/db' };
+const base = { DATABASE_URL: 'postgres://u:p@localhost:5432/db', SESSION_SECRET: 'x'.repeat(32) };
 const PEM = '-----BEGIN CERTIFICATE-----\\nMIIB\\n-----END CERTIFICATE-----';
 
 describe('loadAppConfig', () => {
@@ -8,8 +8,8 @@ describe('loadAppConfig', () => {
     const config = loadAppConfig(base);
     expect(config).toMatchObject({
       port: 3000,
-      appPassword: 'cambiar-esta-clave',
-      sessionSecret: null,
+      sessionSecret: 'x'.repeat(32),
+      dataEncryptionKey: null,
       cronSecret: null,
       revisionCron: '0 11 * * *',
       database: { url: base.DATABASE_URL, caCert: null, poolMax: 5, migrationsRun: true },
@@ -21,7 +21,7 @@ describe('loadAppConfig', () => {
   });
 
   it('rejects non-postgres URLs and invalid numbers together', () => {
-    expect(() => loadAppConfig({ DATABASE_URL: 'mysql://x', PORT: 'abc' })).toThrow(
+    expect(() => loadAppConfig({ DATABASE_URL: 'mysql://x', SESSION_SECRET: 'x'.repeat(32), PORT: 'abc' })).toThrow(
       /DATABASE_URL must be a postgres:\/\/ URL; PORT must be a positive integer/,
     );
   });
@@ -44,11 +44,16 @@ describe('loadAppConfig', () => {
     expect(() => loadAppConfig({ ...base, REVISION_CRON: 'every day' })).toThrow(/REVISION_CRON/);
   });
 
-  it('keeps APP_PASSWORD untrimmed and treats empty secrets as unset', () => {
-    const config = loadAppConfig({ ...base, APP_PASSWORD: ' clave ', SESSION_SECRET: '', CRON_SECRET: '' });
-    expect(config.appPassword).toBe(' clave ');
-    expect(config.sessionSecret).toBeNull();
-    expect(config.cronSecret).toBeNull();
+  it('treats an empty CRON_SECRET as unset', () => {
+    expect(loadAppConfig({ ...base, CRON_SECRET: '' }).cronSecret).toBeNull();
+  });
+
+  it('requires SESSION_SECRET with at least 32 characters and ignores APP_PASSWORD', () => {
+    expect(() => loadAppConfig({ DATABASE_URL: base.DATABASE_URL, APP_PASSWORD: 'vieja-clave' })).toThrow(
+      /SESSION_SECRET is required/,
+    );
+    expect(() => loadAppConfig({ ...base, SESSION_SECRET: 'corto' })).toThrow(/at least 32 characters/);
+    expect(loadAppConfig({ ...base, APP_PASSWORD: 'vieja-clave' })).not.toHaveProperty('appPassword');
   });
 
   it('accepts DATA_ENCRYPTION_KEY only as base64 of 32 bytes', () => {

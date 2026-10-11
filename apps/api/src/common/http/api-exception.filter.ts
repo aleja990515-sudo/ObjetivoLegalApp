@@ -11,8 +11,11 @@ import {
   Optional,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { DataEncryptionKeyMissingError } from '../security/personal-data-crypto.js';
 import { RAMA_TIMEOUT_MESSAGE, ROUTE_NOT_FOUND_MESSAGE } from './api-error.js';
 import { UNMATCHED_ROUTE_RESPONDER, type UnmatchedRouteResponder } from './unmatched-route.js';
+
+export const SERVICIO_NO_CONFIGURADO = 'Servicio no disponible: falta configuración del servidor.';
 
 const isApiErrorBody = (body: unknown): body is { error: string } =>
   typeof body === 'object' &&
@@ -56,6 +59,9 @@ export class ApiExceptionFilter implements ExceptionFilter {
         return this.unmatchedRoute?.respond(req) ?? { status, message: ROUTE_NOT_FOUND_MESSAGE };
       }
       return { status, message: httpMessage(body, exception.message) };
+    }
+    if (exception instanceof DataEncryptionKeyMissingError) {
+      return { status: HttpStatus.SERVICE_UNAVAILABLE, message: SERVICIO_NO_CONFIGURADO };
     }
     this.logger.error(exception instanceof Error ? (exception.stack ?? exception.message) : String(exception));
     const error = exception as { name?: string; message?: string } | null;

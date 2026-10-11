@@ -1,15 +1,15 @@
-import { createHash, createHmac } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { PROCESO_REPOSITORY, type ProcesoRepository } from '../src/procesos/domain/proceso.repository.js';
 import { proceso, tarea } from '../src/procesos/testing/proceso.fixtures.js';
+import { iniciarSesion } from './support/sesion.js';
 import { createTestApp } from './support/test-app.js';
 import { truncateAll } from './support/test-database.js';
 
-const CLAVE = 'clave-de-prueba';
-// Same derivation as the legacy SECRET: sha256('s:' + APP_PASSWORD) when SESSION_SECRET is unset.
-const SECRET = createHash('sha256').update(`s:${CLAVE}`).digest('hex');
+// SESSION_SECRET of the e2e environment (vitest.config.e2e.ts).
+const SECRET = 'secreto-de-sesion-de-prueba-e2e-de-32-chars';
 const TOKEN = createHmac('sha256', SECRET).update('agenda-ics').digest('hex').slice(0, 32);
 
 describe('Agenda and ICS (e2e)', () => {
@@ -22,8 +22,7 @@ describe('Agenda and ICS (e2e)', () => {
   beforeAll(async () => {
     app = await createTestApp();
     procesos = app.get(PROCESO_REPOSITORY);
-    const res = await http().post('/api/login').send({ nombre: 'Ana', clave: CLAVE }).expect(200);
-    cookie = res.headers['set-cookie'][0].split(';')[0];
+    cookie = await iniciarSesion(app);
   });
 
   afterAll(async () => {

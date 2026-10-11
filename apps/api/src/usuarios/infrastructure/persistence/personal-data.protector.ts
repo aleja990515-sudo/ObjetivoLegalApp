@@ -1,5 +1,6 @@
 import {
   cifrarCampo,
+  DataEncryptionKeyMissingError,
   derivePersonalDataKeys,
   descifrarCampo,
   indiceCiego,
@@ -7,13 +8,6 @@ import {
 } from '../../../common/security/personal-data-crypto.js';
 
 export const DATA_PROTECTOR = Symbol('DATA_PROTECTOR');
-
-export class DataEncryptionKeyMissingError extends Error {
-  constructor() {
-    super('DATA_ENCRYPTION_KEY no está configurada.');
-    this.name = 'DataEncryptionKeyMissingError';
-  }
-}
 
 /**
  * Cifrado de datos personales con las claves derivadas de DATA_ENCRYPTION_KEY.

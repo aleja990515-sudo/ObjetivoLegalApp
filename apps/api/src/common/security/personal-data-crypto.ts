@@ -6,6 +6,14 @@ import { createCipheriv, createDecipheriv, createHmac, hkdfSync, randomBytes } f
 // the encryption key and vice versa. Losing DATA_ENCRYPTION_KEY makes these
 // fields unreadable: the operator must back it up.
 
+/** Thrown when personal data must be read or written but DATA_ENCRYPTION_KEY is unset. */
+export class DataEncryptionKeyMissingError extends Error {
+  constructor() {
+    super('DATA_ENCRYPTION_KEY no está configurada.');
+    this.name = 'DataEncryptionKeyMissingError';
+  }
+}
+
 const KEY_BYTES = 32;
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
