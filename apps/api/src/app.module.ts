@@ -3,6 +3,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { DEFAULT_PUBLIC_DIR } from './app.paths.js';
+import { AgendaModule } from './agenda/agenda.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { ApiExceptionFilter } from './common/http/api-exception.filter.js';
 import { TimeModule } from './common/time/sleep.js';
@@ -36,6 +37,7 @@ import { SaludModule } from './salud/salud.module.js';
       ],
     }),
     ProcesosModule,
+    AgendaModule,
     SaludModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: ApiExceptionFilter }],
