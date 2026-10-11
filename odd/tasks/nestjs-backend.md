@@ -31,7 +31,7 @@ Legacy `lib/app.js` line refs. Public: `* /salud`, `* /cron`, `* /agenda.ics?t=`
 - [x] T2 Domain + persistence: domain models, ports, TypeORM entities, initial migration, repository adapters with mapping; unit + integration tests.
 - [x] T3 Auth: legacy-compatible session cookie, login (800ms failure delay), logout, yo, session guard; tests incl. a cookie signed by the legacy algorithm.
 - [x] T4 CPNU + review: CPNU HTTP adapter (25s timeout, 404→null, pagination ≤20), refresh use case, instance detection, review-all service, scheduler, `/api/cron`; tests with mocked CPNU.
-- [ ] T5 Procesos API: list, add, detail, patch, delete, visto, actualizar, notas, tareas, documentos, novedades; e2e contract tests.
+- [x] T5 Procesos API: list, add, detail, patch, delete, visto, actualizar, notas, tareas, documentos, novedades; e2e contract tests.
 - [ ] T6 Agenda + ICS: `/api/agenda`, `/api/agenda.ics`; tests comparing with legacy output for the same data.
 - [ ] T7 Cutover: remove `lib/`, `api/`, `server.js`, legacy `vercel.json`; root scripts; update README, CLAUDE.md, Iniciar.bat; manual smoke of the existing frontend against Nest.
 
@@ -60,5 +60,7 @@ Route per task: delegated direct (writer trigger: multiple non-trivial new files
 
 - 2026-10-10 Parent spot check after T4: `npm test -w apps/api` 76/76 passed. `.env.example` NOT created: runtime permissions deny writes to `.env*` paths (agent and parent); pending user action.
 
+- 2026-10-10 T5 (route: delegated writer, one writer for the whole task). RED first: unit specs `bogota-time`, `validation`, `proceso-resumen` failed on import, and 26 e2e cases in `test/procesos.e2e-spec.ts` failed (add/list/novedades/documentos/detail/PATCH/visto/actualizar/notas/tareas and their 400/404/409 branches); session 401 cases already passed through the global guard. GREEN: domain helpers (`domain/validation.ts`, `domain/proceso-resumen.ts`, `domain/bogota-time.ts`), `application/procesos.service.ts` (legacy `rutasProtegidas` use cases, reusing `RefreshProcesoService.hydrateNew/refresh` and `DetectInstancesService.detect`), `infrastructure/http/procesos.controller.ts`. Deliberate fixes: `etiquetas: null` → `[]`; missing dates sort last; ties break by idProceso; objects never stringify to "[object Object]" (`comoTexto`); `POST /actualizar` answers 404 when the proceso is deleted mid-refresh. Decisions: validation keeps the exact legacy Spanish messages through `ApiError` in the application layer (same precedent as auth), so class-validator DTOs were not added. Checks: lint exit 0 (only pre-existing warnings outside T5 files); typecheck exit 0; build exit 0; unit 100/100; e2e 81/81. Commit `b04e3d1`. Authored lines 1,082 (about 45% tests); above the ~400 heuristic because route, validation/projection helpers and their tests form one unit.
+
 ## Next step
-User creates `.env.example` (or allows the write); then delegate T5-T7.
+T6 (agenda + ICS), then T7. `.env.example` still pending (user action).
