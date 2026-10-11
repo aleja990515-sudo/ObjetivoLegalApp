@@ -7,6 +7,11 @@ export interface DatabaseConfig {
   url: string;
   /** PEM content of the server CA; enables verified TLS when present. */
   caCert: string | null;
+  /**
+   * Opt-in escape hatch (DATABASE_SSL_NO_VERIFY=true): TLS without certificate verification.
+   * Only used when no CA is configured. Insecure: anyone on the network path could impersonate the database.
+   */
+  sslNoVerify: boolean;
   poolMax: number;
   migrationsRun: boolean;
 }
@@ -103,6 +108,7 @@ export function loadAppConfig(env: Env): AppConfig {
     database: {
       url: url ?? '',
       caCert,
+      sslNoVerify: bool(env, 'DATABASE_SSL_NO_VERIFY', false, errors),
       poolMax: positiveInt(env, 'DATABASE_POOL_MAX', 5, errors),
       migrationsRun: bool(env, 'DATABASE_MIGRATIONS_RUN', true, errors),
     },

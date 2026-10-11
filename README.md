@@ -102,6 +102,7 @@ npm run test:web                        # pruebas de la interfaz Next.js (apps/w
 | `CRON_SECRET` | No | Clave del endpoint `/api/cron` (cabecera `Authorization: Bearer …`). |
 | `REVISION_CRON` | No | Horario de la revisión automática en UTC (por defecto `0 11 * * *`, 6:00 a. m. en Colombia). `off` la desactiva. |
 | `DATABASE_CA_CERT` | No | Certificado de la base de datos (contenido PEM) para conexión TLS verificada. |
+| `DATABASE_SSL_NO_VERIFY` | No | `true` conecta con TLS **sin verificar** el certificado. Inseguro: solo como medida temporal si no hay `DATABASE_CA_CERT`. La API avisa en el arranque. |
 | `DATABASE_POOL_MAX` | No | Tamaño máximo del pool de conexiones (por defecto 5). |
 | `DATABASE_MIGRATIONS_RUN` | No | `true` o `false`; aplica migraciones al iniciar (por defecto `true`). |
 | `PORT` | No | Puerto HTTP (por defecto 3000). |

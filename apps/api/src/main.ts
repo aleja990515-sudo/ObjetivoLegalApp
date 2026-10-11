@@ -13,6 +13,9 @@ async function bootstrap(): Promise<void> {
   const config = app.get<AppConfig>(APP_CONFIG);
   await app.listen(config.port);
   const logger = new Logger('Bootstrap');
+  if (config.database.sslNoVerify && !config.database.caCert) {
+    logger.warn('DATABASE_SSL_NO_VERIFY=true: the database certificate is NOT verified. Configure DATABASE_CA_CERT.');
+  }
   logger.log(`Seguimiento de procesos en http://localhost:${config.port}`);
 }
 
