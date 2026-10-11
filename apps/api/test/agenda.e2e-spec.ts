@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
@@ -112,6 +112,12 @@ describe('Agenda and ICS (e2e)', () => {
 
     it('accepts any HTTP method, like the legacy handler', async () => {
       await http().post(`/api/agenda.ics?t=${TOKEN}`).expect(200);
+    });
+
+    it('rejects the link derived from the retired APP_PASSWORD secret', async () => {
+      const claveAntigua = createHash('sha256').update('s:clave-de-prueba').digest('hex');
+      const tokenAntiguo = createHmac('sha256', claveAntigua).update('agenda-ics').digest('hex').slice(0, 32);
+      await http().get(`/api/agenda.ics?t=${tokenAntiguo}`).expect(401);
     });
   });
 });
