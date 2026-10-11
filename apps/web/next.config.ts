@@ -8,6 +8,8 @@ const API_ORIGIN = process.env.API_ORIGIN ?? 'http://localhost:3000';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Sin AGENTS.md generado: las reglas del repo viven en CLAUDE.md.
+  agentRules: false,
   async rewrites() {
     return [{ source: '/api/:path*', destination: `${API_ORIGIN}/api/:path*` }];
   },

@@ -1,7 +1,10 @@
-/* ---------- Tokens ----------
+@import "tailwindcss";
+
+/* ---------- Tokens (fuente unica) ----------
    Neutros frios (tipo zinc) y un solo acento esmeralda. El rojo solo indica error o vencimiento.
-   Radios: controles 8px, superficies 12px, insignias/chips/pildoras en pildora.
-   Origen: feat/ui-redesign:public/styles.css. Un solo juego de tokens para toda la app. */
+   Radios: controles 8px, superficies 12px, pildoras en pildora.
+   Origen: feat/ui-redesign:public/styles.css. Los colores de shadcn/ui se mapean a estos tokens
+   en @theme inline abajo; no existe una segunda paleta. */
 :root {
   color-scheme: light;
   --bg: #f4f5f7;
@@ -21,8 +24,6 @@
   --danger-soft: #fdecea;
   --shadow: 0 1px 2px rgb(24 24 27 / 0.05), 0 4px 16px rgb(24 24 27 / 0.06);
 
-  --font-sans: var(--font-geist), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Consolas, monospace;
   --fs-xs: 0.75rem;
   --fs-sm: 0.875rem;
   --fs-base: 1rem;
@@ -64,19 +65,66 @@
   }
 }
 
-/* ---------- Base ---------- */
-* {
-  box-sizing: border-box;
+/* Mapeo de tokens a utilidades de Tailwind (bg-primary, text-muted-foreground, rounded-lg...). */
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--on-accent);
+  --color-secondary: var(--surface-sunken);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--surface-sunken);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--accent-soft);
+  --color-accent-foreground: var(--accent-soft-text);
+  --color-destructive: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-border: var(--line);
+  --color-input: var(--line-input);
+  --color-ring: var(--accent);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-line: var(--line);
+  --color-placeholder: var(--placeholder);
+  --color-line-input: var(--line-input);
+
+  --radius-sm: 6px;
+  --radius-md: var(--r-control);
+  --radius-lg: var(--r-surface);
+  --radius-xl: 16px;
+  --radius-pill: var(--r-pill);
+
+  --font-sans: var(--font-geist), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 
-html {
-  -webkit-text-size-adjust: 100%;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  a {
+    color: var(--accent);
+  }
+}
+
+/* ---------- Base ---------- */
+/* Iconos Phosphor de public/icons.svg (ver components/icon.tsx). */
+.icon {
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+  vertical-align: -0.2em;
+  fill: none;
+  stroke: currentColor;
 }
 
 body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
   font-family: var(--font-sans);
   font-size: var(--fs-base);
   line-height: 1.5;
@@ -90,22 +138,6 @@ h2,
 h3 {
   line-height: 1.25;
   letter-spacing: -0.01em;
-}
-
-h1 {
-  font-size: var(--fs-xl);
-  font-weight: 600;
-  margin: 0 0 4px;
-}
-
-h2 {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  margin: 0 0 12px;
-}
-
-a {
-  color: var(--accent);
 }
 
 ::placeholder {

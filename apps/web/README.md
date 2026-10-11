@@ -44,6 +44,7 @@ Desde la raíz (`npm run <script>`):
 ## Estructura
 
 - `src/app/layout.tsx`: raíz HTML, fuentes Geist y Geist Mono (`next/font/local`).
-- `src/app/globals.css`: tokens de diseño (colores, radios, tipografía) y base. Modo oscuro según `prefers-color-scheme`.
+- `src/app/globals.css`: tokens de diseño (fuente única: colores, radios, tipografía) mapeados a Tailwind v4 (`@theme inline`) y a las variables de shadcn/ui. Modo oscuro según `prefers-color-scheme`.
+- `src/components/ui/`: componentes de shadcn/ui (estilo `base-vega`, neutro, variables CSS). Se añaden con `npx shadcn@latest add <componente>`.
 - `src/fonts/`: fuentes variables en formato woff2 y licencia OFL.
 - `public/`: iconos Phosphor vendidos (`icons.svg`) y favicon.
