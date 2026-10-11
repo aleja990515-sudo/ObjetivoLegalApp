@@ -61,7 +61,7 @@
     --accent-soft-text: #5ed3ad;
     --danger: #f97066;
     --danger-soft: #3a1c1a;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
+    --shadow: 0 1px 2px rgb(8 8 10 / 0.3), 0 4px 16px rgb(8 8 10 / 0.25);
   }
 }
 
@@ -81,6 +81,7 @@
   --color-muted-foreground: var(--muted);
   --color-accent: var(--accent-soft);
   --color-accent-foreground: var(--accent-soft-text);
+  --color-accent-hover: var(--accent-hover);
   --color-destructive: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-border: var(--line);
@@ -91,6 +92,12 @@
   --color-placeholder: var(--placeholder);
   --color-line-input: var(--line-input);
 
+  /* Escala tipografica declarada en :root; sin este mapeo --fs-* no genera utilidades. */
+  --text-xs: var(--fs-xs);
+  --text-sm: var(--fs-sm);
+  --text-lg: var(--fs-lg);
+  --text-xl: var(--fs-xl);
+
   --radius-sm: 6px;
   --radius-md: var(--r-control);
   --radius-lg: var(--r-surface);
@@ -99,6 +106,11 @@
 
   --font-sans: var(--font-geist), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  /* Escala de movimiento declarada: duration-ui y ease-ui.
+     Tailwind resuelve el utilidad `duration-*` contra --transition-duration-* (no --duration-*). */
+  --transition-duration-ui: var(--dur);
+  --ease-ui: var(--ease);
 }
 
 @layer base {
