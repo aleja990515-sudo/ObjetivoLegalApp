@@ -20,7 +20,7 @@
     "migration:revert": "nest build && typeorm migration:revert -d dist/database/data-source.js"
   },
   "engines": {
-    "node": ">=20.19"
+    "node": ">=26"
   },
   "dependencies": {
     "@nestjs/common": "^12.1.2",
