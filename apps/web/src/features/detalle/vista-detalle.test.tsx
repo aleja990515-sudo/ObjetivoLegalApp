@@ -3,9 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { VistaDetalle } from './vista-detalle';
 import type { ProcesoDetalle } from '@/features/procesos/modelo';
 
+const { empujar } = vi.hoisted(() => ({ empujar: vi.fn() }));
+
 vi.mock('next/navigation', () => ({
   usePathname: () => '/procesos/1',
-  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), back: vi.fn() }),
+  useRouter: () => ({ replace: vi.fn(), push: empujar, back: vi.fn() }),
 }));
 
 function detalle(parcial: Partial<ProcesoDetalle> = {}): ProcesoDetalle {
@@ -103,5 +105,17 @@ describe('VistaDetalle', () => {
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
     expect(llamadas.some((l) => l.metodo === 'DELETE')).toBe(false);
+  });
+
+  it('al confirmar, quita el proceso con DELETE y vuelve a la lista', async () => {
+    const llamadas = stubDetalle(detalle(), { 'DELETE /api/procesos/1': { ok: true } });
+    render(<VistaDetalle id="1" />);
+    await screen.findByRole('heading', { name: 'Pérez vs. Aseguradora' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar de la lista' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Quitar proceso' }));
+
+    await waitFor(() => expect(empujar).toHaveBeenCalledWith('/'));
+    expect(llamadas.find((l) => l.metodo === 'DELETE')?.url).toBe('/api/procesos/1');
   });
 });

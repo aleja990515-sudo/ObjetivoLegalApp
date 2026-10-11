@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarBlank, CheckCircle, Circle, ListChecks, Plus, Trash, User, X } from '@phosphor-icons/react';
+import { CalendarBlank, ListChecks, Plus, Trash, User, X } from '@phosphor-icons/react';
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import { ConfirmarDialog } from '@/components/dialogo/confirmar-dialog';
 import { EstadoVacio } from '@/components/estado/estado';
@@ -178,11 +178,6 @@ export function Tareas({ proceso: p, hoy, ocupado, ejecutar, borrador }: Props) 
                   </p>
                   <p className={cn('m-0 text-sm font-medium', t.hecha && 'line-through')}>{t.titulo}</p>
                   <p className="m-0 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    {t.hecha ? (
-                      <CheckCircle aria-hidden="true" className="size-3.5" />
-                    ) : (
-                      <Circle aria-hidden="true" className="size-3.5" />
-                    )}
                     {t.responsable ? (
                       <>
                         <User aria-hidden="true" className="size-3.5" />
