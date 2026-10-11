@@ -1,5 +1,5 @@
-import { PageHeader } from '@/components/page-header/page-header';
+import { VistaAgenda } from '@/features/agenda/vista-agenda';
 
 export default function AgendaPage() {
-  return <PageHeader titulo="Agenda" descripcion="Vista en construcción." />;
+  return <VistaAgenda />;
 }

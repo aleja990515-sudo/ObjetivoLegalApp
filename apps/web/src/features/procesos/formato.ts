@@ -38,3 +38,10 @@ export function fechaLarga(iso: string): string {
 export function fechaHora(iso: string | null | undefined): string {
   return iso ? new Date(iso).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }) : 'nunca';
 }
+
+/** Suma días a una fecha `YYYY-MM-DD` y devuelve `YYYY-MM-DD` (aritmética en UTC, sin desfase). */
+export function sumarDias(iso: string, dias: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + dias);
+  return d.toISOString().slice(0, 10);
+}
