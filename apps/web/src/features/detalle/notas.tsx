@@ -69,7 +69,7 @@ export function Notas({ proceso: p, ocupado, ejecutar }: Props) {
 
       {p.notas.length === 0 ? (
         <Tarjeta variante="vacio">
-          <EstadoVacio icono={NotePencil} titulo="Sin notasTodavía">
+          <EstadoVacio icono={NotePencil} titulo="Sin notas todavía">
             Las notas son visibles para toda la oficina. Escribe una arriba para dejar constancia.
           </EstadoVacio>
         </Tarjeta>

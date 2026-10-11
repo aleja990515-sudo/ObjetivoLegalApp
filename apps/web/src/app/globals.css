@@ -87,6 +87,10 @@
   --color-border: var(--line);
   --color-input: var(--line-input);
   --color-ring: var(--accent);
+  /* `--surface` es la superficie base (barras fijas, rail, tabbar). shadcn mapea el mismo valor a
+     `--color-card`, pero `bg-surface` es otra utilidad: sin esta linea NO se genera y las barras
+     quedan con fondo transparente, dejando pasar el contenido por debajo. */
+  --color-surface: var(--surface);
   --color-surface-sunken: var(--surface-sunken);
   --color-line: var(--line);
   --color-placeholder: var(--placeholder);
