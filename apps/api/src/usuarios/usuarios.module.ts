@@ -3,6 +3,7 @@ import { PASSWORD_HASHER } from '../auth/application/ports/password-hasher.port.
 import { ScryptPasswordHasher } from '../auth/infrastructure/crypto/scrypt-password-hasher.js';
 import { APP_CONFIG } from '../config/app-config.provider.js';
 import type { AppConfig } from '../config/app-config.js';
+import { AdministracionUsuarios } from './application/administracion-usuarios.service.js';
 import { RegistroService } from './application/registro.service.js';
 import { USUARIO_REPOSITORY } from './domain/usuario.repository.js';
 import { RegistroController } from './infrastructure/http/registro.controller.js';
@@ -16,7 +17,8 @@ import { TypeOrmUsuarioRepository } from './infrastructure/persistence/typeorm-u
     { provide: USUARIO_REPOSITORY, useClass: TypeOrmUsuarioRepository },
     { provide: PASSWORD_HASHER, useClass: ScryptPasswordHasher },
     RegistroService,
+    AdministracionUsuarios,
   ],
-  exports: [USUARIO_REPOSITORY, PASSWORD_HASHER, DATA_PROTECTOR],
+  exports: [USUARIO_REPOSITORY, PASSWORD_HASHER, DATA_PROTECTOR, AdministracionUsuarios],
 })
 export class UsuariosModule {}

@@ -19,7 +19,11 @@
     "typecheck:web": "npm run -w apps/web typecheck",
     "test:web": "npm run -w apps/web test",
     "db:up": "docker compose up -d",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "users:create": "npm run -w apps/api users:create --",
+    "users:activate": "npm run -w apps/api users:activate --",
+    "users:deactivate": "npm run -w apps/api users:deactivate --",
+    "users:password": "npm run -w apps/api users:password --"
   },
   "engines": {
     "node": ">=26"

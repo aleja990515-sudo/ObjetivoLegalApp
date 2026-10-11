@@ -17,7 +17,11 @@
     "test:watch": "vitest",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "migration:run": "nest build && typeorm migration:run -d dist/database/data-source.js",
-    "migration:revert": "nest build && typeorm migration:revert -d dist/database/data-source.js"
+    "migration:revert": "nest build && typeorm migration:revert -d dist/database/data-source.js",
+    "users:create": "nest build && node dist/cli/users.js create",
+    "users:activate": "nest build && node dist/cli/users.js activate",
+    "users:deactivate": "nest build && node dist/cli/users.js deactivate",
+    "users:password": "nest build && node dist/cli/users.js password"
   },
   "engines": {
     "node": ">=26"

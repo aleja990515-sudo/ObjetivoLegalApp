@@ -14,6 +14,13 @@ export class ErrorValidacion extends Error {
   }
 }
 
+/** Mensaje de la regla de clave, o `null` si la clave cumple. */
+export function problemaDeClave(clave: string): string | null {
+  return clave.length < LONGITUD_CLAVE_MINIMA || clave.length > LONGITUD_CLAVE_MAXIMA
+    ? `La clave debe tener al menos ${LONGITUD_CLAVE_MINIMA} caracteres.`
+    : null;
+}
+
 export interface DatosCuenta {
   nombreCompleto: string;
   cedula: string;
@@ -57,9 +64,8 @@ export function validarDatosCuenta(entrada: unknown): DatosCuenta {
   }
 
   const clave = typeof datos.clave === 'string' ? datos.clave : '';
-  if (clave.length < LONGITUD_CLAVE_MINIMA || clave.length > LONGITUD_CLAVE_MAXIMA) {
-    errores.push(`La clave debe tener al menos ${LONGITUD_CLAVE_MINIMA} caracteres.`);
-  }
+  const problemaClave = problemaDeClave(clave);
+  if (problemaClave) errores.push(problemaClave);
 
   if (errores.length > 0) throw new ErrorValidacion(errores.join(' '));
   return { nombreCompleto, cedula, correo, celular, clave };
