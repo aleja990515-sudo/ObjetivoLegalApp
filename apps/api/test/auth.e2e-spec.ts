@@ -2,7 +2,6 @@ import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
-import { SLEEP } from '../src/common/time/sleep.js';
 import { createTestApp } from './support/test-app.js';
 
 const LEGACY_APP = new URL('../../../lib/app.js', import.meta.url);
@@ -30,7 +29,7 @@ describe('Auth (e2e)', () => {
   const sleep = vi.fn(async () => undefined);
 
   beforeAll(async () => {
-    app = await createTestApp({ override: (b) => b.overrideProvider(SLEEP).useValue(sleep) });
+    app = await createTestApp({ sleep });
   });
 
   afterAll(async () => {

@@ -1,5 +1,5 @@
 import type { DataSource } from 'typeorm';
-import { actuacion, nota, proceso, tarea } from '../../src/procesos/domain/proceso.fixtures.js';
+import { actuacion, nota, proceso, tarea } from '../../src/procesos/testing/proceso.fixtures.js';
 import type { ProcesoCpnuState } from '../../src/procesos/domain/proceso.js';
 import { TypeOrmMetaRepository } from '../../src/procesos/infrastructure/persistence/typeorm-meta.repository.js';
 import { TypeOrmProcesoRepository } from '../../src/procesos/infrastructure/persistence/typeorm-proceso.repository.js';

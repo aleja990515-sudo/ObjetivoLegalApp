@@ -1,5 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
+export { safeEqual } from '../../common/security/safe-equal.js';
+
 // Session format shared with the legacy server (lib/app.js) so existing cookies
 // stay valid after the migration. Do not change without a migration plan.
 
@@ -60,10 +62,4 @@ export function readSession(secret: string, cookieHeader: string | undefined, no
   } catch {
     return null;
   }
-}
-
-/** Constant-time comparison of two secrets of any length (hash first, then compare). */
-export function safeEqual(x: unknown, y: unknown): boolean {
-  const digest = (v: string) => createHash('sha256').update(v).digest();
-  return timingSafeEqual(digest(String(x || '')), digest(String(y)));
 }

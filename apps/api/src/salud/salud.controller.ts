@@ -1,9 +1,14 @@
-import { All, Controller, HttpCode } from '@nestjs/common';
+import { All, Controller, HttpCode, Inject } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { Public } from '../auth/infrastructure/http/public.decorator.js';
 import type { DataSource } from 'typeorm';
 import { LEGACY_DEFAULT_PASSWORD, type AppConfig } from '../config/app-config.js';
 import { InjectAppConfig } from '../config/app-config.provider.js';
+import { errorMessage } from '../procesos/application/error-message.js';
+import { CPNU_PORT, type CpnuPort } from '../procesos/application/ports/cpnu.port.js';
+
+/** Known public radicado used to check that CPNU answers. */
+export const HEALTH_CHECK_RADICADO = '11001310300120190012300';
 
 export interface SaludResponse {
   rama: string;
@@ -19,18 +24,28 @@ export class SaludController {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     @InjectAppConfig() private readonly config: AppConfig,
+    @Inject(CPNU_PORT) private readonly cpnu: CpnuPort,
   ) {}
 
   @All()
   @HttpCode(200)
   async salud(): Promise<SaludResponse> {
     return {
-      // Live CPNU reachability is wired once the CPNU port exists (T4).
-      rama: 'sin verificar',
+      rama: await this.ramaStatus(),
       baseDeDatos: (await this.databaseReachable()) ? 'postgres' : 'sin configurar',
       claveConfigurada: this.config.appPassword !== LEGACY_DEFAULT_PASSWORD,
       region: this.config.vercelRegion ?? 'local',
     };
+  }
+
+  /** `'ok'` when CPNU answers, otherwise the error message. */
+  private async ramaStatus(): Promise<string> {
+    try {
+      await this.cpnu.searchRadicado(HEALTH_CHECK_RADICADO);
+      return 'ok';
+    } catch (e) {
+      return errorMessage(e);
+    }
   }
 
   private async databaseReachable(): Promise<boolean> {

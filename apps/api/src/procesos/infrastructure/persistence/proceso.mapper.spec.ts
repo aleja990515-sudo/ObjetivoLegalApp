@@ -1,4 +1,4 @@
-import { actuacion, nota, proceso, tarea } from '../../domain/proceso.fixtures.js';
+import { actuacion, nota, proceso, tarea } from '../../testing/proceso.fixtures.js';
 import { ActuacionEntity, NotaEntity, ProcesoEntity, SujetoEntity, TareaEntity } from './entities/index.js';
 import { bigintToNumber } from './entities/transformers.js';
 import {

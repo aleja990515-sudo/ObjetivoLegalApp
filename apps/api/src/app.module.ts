@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { DEFAULT_PUBLIC_DIR } from './app.paths.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -16,6 +17,7 @@ import { SaludModule } from './salud/salud.module.js';
   imports: [
     AppConfigModule,
     TimeModule,
+    ScheduleModule.forRoot(),
     DatabaseModule,
     AuthModule,
     // Static frontend (`public/`) with SPA fallback to index.html for every

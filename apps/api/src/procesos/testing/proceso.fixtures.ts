@@ -1,5 +1,5 @@
 // Test fixtures for the procesos domain (used by unit and integration tests).
-import type { Actuacion, Nota, Proceso, Tarea } from './proceso.js';
+import type { Actuacion, Nota, Proceso, Tarea } from '../domain/proceso.js';
 
 export function actuacion(id: number, overrides: Partial<Actuacion> = {}): Actuacion {
   return {
