@@ -35,3 +35,14 @@ Backend port `PublicacionesPort` + HTTP adapter with retries, timeouts, pacing a
 
 ## Next step
 Delegate phase R to one read-only research worker.
+
+## Phase R result (2026-10-11, read-only worker, 26 portal requests, 0 PDFs downloaded)
+- Session: filters and search need the `JSESSIONID` cookie from a first `GET /web/publicaciones-procesales/inicio`; without it the AJAX answer is 200 with 0 bytes. No `p_auth`, no special headers.
+- Despacho code = first 12 digits of the radicado (e.g. `050013110015`); the first page already lists all 5,755 despachos.
+- Search: plain GET on `inicio` with `p_p_lifecycle=0`, `NS_action=busqueda`, `NS_fechaInicio`, `NS_fechaFin`, `NS_idDepto`, `NS_idDespacho`, `NS_verTotales=true`, `NS_idDeptoIdCategory`; HTML rows `tr.tramites` with title, type, publication date and a detail link (`NS_jspPage=/META-INF/resources/detail.jsp&NS_articleId=<id>`).
+- Detail page lists each auto as its own PDF: `/c/document_library/get_file?uuid=<uuid>&groupId=6098902`. In Juzgado 015 de Familia de Medellín the file name contains `<year><consecutivo>` of the radicado (e.g. `031202600100ConcedeApelación-NiegaSolicitud.pdf`).
+- Matching: search a window of a few days up to the CPNU "Fijación Estado" date (estados can be published before that date), then match `<year><consecutivo>` in the file names.
+- Result: 9 of 9 autos of the test case matched to a PDF link.
+- robots.txt disallows `/documents/`, `/c/document_library/`, `/dtd/` (all PDFs live under `/c/document_library/`). Search and detail pages are allowed. Terms of use page not readable by curl: unverified.
+- Risks: Liferay HTML and portlet instance id `BIyXQFHVaYaq` can change; file naming is per-clerk habit, not a standard; PDFs contain third-party data.
+- Recommendation: GO for phase P with conditions: the server only reads search/detail pages and returns the PDF link; it never fetches, stores or proxies the PDF (the user's browser opens it). Cache results hard, pace like CPNU. Phase P must test a second despacho with different file naming.
