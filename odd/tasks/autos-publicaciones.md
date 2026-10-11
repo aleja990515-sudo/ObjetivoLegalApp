@@ -51,3 +51,10 @@ Delegate phase R to one read-only research worker.
 - GO for phase P with the phase R conditions: server reads only search and detail pages and returns PDF links; it never fetches, stores or proxies PDFs.
 - Second despacho for the proof: radicado 05001400302120250133300 (despacho code 050014003021). Regression: 05001311001520260010000.
 - Budget: at most 80 portal requests across both cases, at least 2 s apart, throwaway script in the scratchpad only.
+
+## Phase P result (2026-10-11, throwaway script in scratchpad, 74 of 80 portal requests, 0 PDFs downloaded)
+- Case A (05001311001520260010000, Juzgado 015 de Familia de Medellín): 9 of 9 autos matched to an exact PDF by `<year><consecutivo>` in the file name. Needed window = auto date to fijación + 2 business days (a Friday fijación was published on Monday).
+- Case B (05001400302120250133300, Juzgado 021 Civil Municipal de Medellín): 3 autos, 0 exact matches possible. This court publishes one combined `AUTOS<yyyymmdd>.pdf` and one `ESTADOS<yyyymmdd>.pdf` per estado; no radicado in the names. Only a low-confidence "PDF del día" can be offered; verifying the auto is inside would require opening the PDF, which robots.txt disallows.
+- Proposed matcher, in order: skip date-only names (avoid false positives like `AUTOS20260611`); rule a `<year><consecutivo>`; rule b year and consecutivo with separators (`2025-01333`, `1333 de 2025`); rule c combined estado on the fijación date, labelled "PDF del día, revisar"; else link to the estado page.
+- Portal reliability: one 504 and two 60 s timeouts, all recovered with one retry.
+- Recommendation: GO for phase I with conditions: links only; confidence level visible in the UI; window to fijación + 2 business days; persist results per actuación and never re-search a resolved one; 60 s timeout, one retry on 5xx/timeout, stop on 403/429/captcha; tests from recorded fixtures of both naming styles; read the department data-id dynamically.
