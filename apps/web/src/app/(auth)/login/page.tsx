@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { LoginForm } from '@/features/login/login-form';
 
@@ -18,6 +19,9 @@ export default function LoginPage() {
           Iniciar sesión
         </h1>
         <LoginForm />
+        <p className="m-0 text-center text-sm text-muted-foreground">
+          ¿No tienes cuenta? <Link href="/registro" className="font-medium text-primary underline-offset-4 hover:underline">Regístrate</Link>
+        </p>
       </Card>
     </main>
   );

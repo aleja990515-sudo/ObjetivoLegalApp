@@ -11,7 +11,7 @@ const ERROR_DE_CONEXION = 'No hay conexión con el servidor. Inténtalo de nuevo
 
 export function LoginForm() {
   const router = useRouter();
-  const [usuario, setUsuario] = useState('');
+  const [correo, setCorreo] = useState('');
   const [clave, setClave] = useState('');
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -21,7 +21,7 @@ export function LoginForm() {
     setError('');
     setEnviando(true);
     try {
-      await apiFetch('/login', { method: 'POST', body: { usuario, clave } });
+      await apiFetch('/login', { method: 'POST', body: { correo, clave } });
       router.replace('/');
     } catch (e) {
       setError(e instanceof ApiError ? e.message : ERROR_DE_CONEXION);
@@ -32,14 +32,15 @@ export function LoginForm() {
   return (
     <form className="grid gap-4" onSubmit={onSubmit}>
       <div className="grid gap-1.5">
-        <Label htmlFor="usuario">Usuario</Label>
+        <Label htmlFor="correo">Correo</Label>
         <Input
-          id="usuario"
-          name="usuario"
+          id="correo"
+          name="correo"
+          type="email"
           autoComplete="username"
           required
-          value={usuario}
-          onChange={(e) => setUsuario(e.target.value)}
+          value={correo}
+          onChange={(e) => setCorreo(e.target.value)}
           className="min-h-11 rounded-md border-line-input bg-surface px-3 text-base md:text-sm"
         />
       </div>

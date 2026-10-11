@@ -22,28 +22,28 @@ describe('LoginForm', () => {
   });
 
   it('muestra el mensaje de error que devuelve el servidor', async () => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse({ error: 'Usuario o clave incorrectos' }, 401));
+    vi.mocked(fetch).mockResolvedValue(jsonResponse({ error: 'Correo o clave incorrectos.' }, 401));
 
     render(<LoginForm />);
-    fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'ana' } });
+    fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'ana@example.com' } });
     fireEvent.change(screen.getByLabelText('Clave'), { target: { value: 'mal' } });
     fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Usuario o clave incorrectos');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Correo o clave incorrectos.');
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it('envia usuario y clave a /api/login y va al inicio con exito', async () => {
+  it('envia correo y clave a /api/login y va al inicio con exito', async () => {
     vi.mocked(fetch).mockResolvedValue(jsonResponse({ nombre: 'Ana' }, 200));
 
     render(<LoginForm />);
-    fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'ana' } });
+    fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'ana@example.com' } });
     fireEvent.change(screen.getByLabelText('Clave'), { target: { value: 'secreta' } });
     fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/'));
     const [url, init] = vi.mocked(fetch).mock.calls[0];
     expect(url).toBe('/api/login');
-    expect(JSON.parse(String(init?.body))).toEqual({ usuario: 'ana', clave: 'secreta' });
+    expect(JSON.parse(String(init?.body))).toEqual({ correo: 'ana@example.com', clave: 'secreta' });
   });
 });
