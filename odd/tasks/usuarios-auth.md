@@ -33,13 +33,13 @@ Replace the single shared office password with real accounts stored in PostgreSQ
 - `GET /api/yo` → `{ nombre }` (unchanged shape).
 - Everything else unchanged.
 
-## Tasks (TDD: RED before GREEN for every behaviour)
-- [ ] U1 Domain: `Usuario` type, username and password policy, scrypt hashing port and adapter with known-answer tests (format `scrypt$N$r$p$salt$hash`, verify constant time, rehash-needed check).
-- [ ] U2 Persistence: entity, migration `usuarios`, repository (find by usuario, create, set password), tests against Postgres.
-- [ ] U3 Auth flow: login by usuario/clave, generic failure, inactive user rejected, rate limit per IP+usuario, session payload with user id, `SESSION_SECRET` required, `APP_PASSWORD` removed from config and code.
-- [ ] U4 CLI: `users:create` and `users:password` (no password arguments, echo off, confirm twice, minimum length 12), with tests for the non-interactive core.
-- [ ] U5 ICS/agenda: token from `SESSION_SECRET`; update the agenda e2e and the calendar test; regenerate note in docs.
-- [ ] U6 Cleanup and docs: remove the legacy-cookie fixture and its tests, update README and CLAUDE.md (env vars, `users:create`), feature doc progress.
+## Tasks (TDD off by user decision 2026-10-11: tests written after each behaviour, all checks run before each commit)
+- [x] U1 Domain: `Usuario` type, username and password policy, scrypt hashing port and adapter with known-answer tests (format `scrypt$N$r$p$salt$hash`, verify constant time, rehash-needed check).
+- [x] U2 Persistence: entity, migration `usuarios`, repository (find by usuario, create, set password), tests against Postgres.
+- [x] U3 Auth flow: login by usuario/clave, generic failure, inactive user rejected, rate limit per IP+usuario, session payload with user id, `SESSION_SECRET` required, `APP_PASSWORD` removed from config and code.
+- [x] U4 CLI: `users:create` and `users:password` (no password arguments, echo off, confirm twice, minimum length 12), with tests for the non-interactive core.
+- [x] U5 ICS/agenda: token from `SESSION_SECRET`; update the agenda e2e and the calendar test; regenerate note in docs.
+- [x] U6 Cleanup and docs: remove the legacy-cookie fixture and its tests, update README and CLAUDE.md (env vars, `users:create`), feature doc progress.
 
 ## Checks
 - `npm test -w apps/api`, `npm run -w apps/api test:e2e` (Docker test DB on 5434), `typecheck`, `lint`, `build`, all under `mise exec --`.
@@ -54,5 +54,25 @@ Replace the single shared office password with real accounts stored in PostgreSQ
 - 2026-10-11: decisions recorded (above), document created.
 - 2026-10-11: user approved encrypted personal data and self-registration with manual activation.
 
+## Deviations from the decisions above (writer, 2026-10-11)
+- Login identifier is the **correo** (user instruction), not a separate `usuario`. There is no `usuario` column: `correo` is stored encrypted (`correo_cifrado`) with an HMAC index (`correo_indice`, unique), which is also the login lookup key. `nombre` is the display name (`nombre_completo` truncated to 60).
+- `DATA_ENCRYPTION_KEY` is 32 bytes base64; two keys are derived with HKDF-SHA256 (`mis-procesos:cifrado:v1` and `mis-procesos:indice:v1`), so the index key is separate from the cipher key.
+- Calendar token: `HMAC-SHA256(SESSION_SECRET, 'agenda-ics')[0:32]`, unchanged formula, new secret. The ICS legacy oracle fixture (`agenda/testing/legacy-ics.fixture.ts`) is kept because it pins the ICS output format, not the auth secret.
+- `SESSION_SECRET` must be at least 32 characters; `DATA_ENCRYPTION_KEY` is optional at config level and required by registration, login and the `users:*` commands (503 generic message at runtime when missing).
+- Health `claveConfigurada` now reports whether `DATA_ENCRYPTION_KEY` is configured.
+- Operator-created accounts have no consent timestamp (`consentimiento_at` is null); self-registered ones always do.
+- Rate limit: in memory, 5 failures per IP and correo in 15 minutes, then 429. Single instance only.
+
+## Progress / Evidence (continued)
+- 2026-10-11 U1 `feat(api): add scrypt password hashing and AES-GCM field encryption`: commit `1be7b7c`. Unit checks pass (`lint`, `typecheck`, `build`, `test` 133, `test:e2e` 88 at that point).
+- 2026-10-11 U2 `feat(api): add usuarios table and repository`: commit `5687202`. Migration `1791676800000-usuarios`; repository e2e against `db-test` (5434) passes.
+- 2026-10-11 U3 `feat(api): login by correo, self-registration and session by user id`: commit `6f504de`. Login, registration (inactive, 409 generic, consent required), session payload `[id, nombre, exp]`, legacy fixture removed, `APP_PASSWORD` removed. api unit 151 and e2e 104 passing.
+- 2026-10-11 U4 `feat(api): add users operator commands`: commit `b4cceb8`. `users:create|activate|deactivate|password` (password never an argument, echo off on a terminal, piped input allowed, twice, min 12). Unit and e2e (`administracion-usuarios`) passing.
+- 2026-10-11 U5 `feat(api): derive calendar token from SESSION_SECRET and refresh agenda tests`: commit `6dee80a`. Old-secret link rejected (401) in e2e.
+- 2026-10-11 U6 `feat(web): login by correo and registration page`: commit `6df1985` (web lint, typecheck, test 36, build pass). Docs: README and CLAUDE.md updated in the following `docs` commit.
+- 2026-10-11 Live smoke (dev DB 5432, API on port 3000, `REVISION_CRON=off`, env inline): `users:create` prueba.smoke ok; `POST /api/registro` 201; login inactive 401; `users:activate` ok; login 200; `GET /api/yo` 200; wrong password 401; SQL: 2 rows, both active, `password_hash` is scrypt and never equals the clave, no plaintext cédula, celular or correo in any column. Both throwaway users deleted from the dev DB (`DELETE 2`). Server stopped by PID; `/api/salud` no longer answers. CPNU reported a timeout from this sandbox (`rama`), unrelated to this change.
+
 ## Next step
-Delegate U1–U6 (writer) on `feat/usuarios-auth`.
+- User: create `.env.example` (variables: `DATABASE_URL`, `SESSION_SECRET` generated with `openssl rand -hex 32`, `DATA_ENCRYPTION_KEY` generated with `openssl rand -base64 32`; back up the key), then create the real accounts with `npm run users:create -- ...`.
+- User decides on push and PR. Branch `feat/usuarios-auth` has 6 work-unit commits plus docs.
+
