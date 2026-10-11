@@ -179,7 +179,10 @@ export function CabeceraProceso({ proceso: p, ocupado, ejecutar }: Props) {
         </a>
       </p>
 
-      <form onSubmit={guardarGestion} className="grid gap-3 rounded-lg border border-line bg-card p-4 min-[640px]:grid-cols-2">
+      {/* `items-start` es obligatorio: la columna de Etiquetas tiene una línea de ayuda extra, así que
+          con el `stretch` por defecto ambas celdas se igualan a la más alta y el grid interno reparte
+          el sobrante entre sus filas. Eso deformaba el input de Responsable y desalineaba los labels. */}
+      <form onSubmit={guardarGestion} className="grid items-start gap-3 rounded-lg border border-line bg-card p-4 min-[640px]:grid-cols-2">
         <div className="grid gap-1.5">
           <Label htmlFor={idResponsable}>Responsable</Label>
           <Input id={idResponsable} value={responsable} maxLength={60} onChange={(e) => setResponsable(e.target.value)} />
@@ -190,7 +193,7 @@ export function CabeceraProceso({ proceso: p, ocupado, ejecutar }: Props) {
           <p className="m-0 text-xs text-muted-foreground">Separadas por coma, por ejemplo: urgente, cliente X, laboral.</p>
         </div>
         <div className="min-[640px]:col-span-2">
-          <Button type="submit" variant="outline" disabled={ocupado}>
+          <Button type="submit" variant="outline" disabled={ocupado} className="min-h-11 min-[640px]:min-h-9">
             Guardar gestión
           </Button>
         </div>
