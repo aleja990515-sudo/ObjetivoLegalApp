@@ -1,28 +1,7 @@
-import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
+import { legacyCookieSesion, legacySecret } from '../src/auth/domain/legacy-session.fixture.js';
 import { createTestApp } from './support/test-app.js';
-
-const LEGACY_APP = new URL('../../../lib/app.js', import.meta.url);
-
-/** Runs the real legacy handler (lib/app.js) for a login and returns its Set-Cookie. */
-async function legacyLoginCookie(nombre: string, clave: string): Promise<string> {
-  const legacy = createRequire(import.meta.url)(LEGACY_APP.pathname) as {
-    handle: (req: unknown, res: unknown) => Promise<void>;
-  };
-  let headers: Record<string, string> = {};
-  let status = 0;
-  await legacy.handle(
-    { url: '/api/login', method: 'POST', headers: {}, body: { nombre, clave } },
-    {
-      writeHead: (code: number, h: Record<string, string>) => ((status = code), (headers = h)),
-      end: () => undefined,
-    },
-  );
-  expect(status).toBe(200);
-  return headers['Set-Cookie'];
-}
 
 describe('Auth (e2e)', () => {
   let app: NestExpressApplication;
@@ -84,8 +63,10 @@ describe('Auth (e2e)', () => {
     await request(app.getHttpServer()).get('/api/login').expect(401);
   });
 
-  it.skipIf(!existsSync(LEGACY_APP))('accepts a cookie issued by the legacy server (lib/app.js)', async () => {
-    const setCookie = await legacyLoginCookie('Legado', 'clave-de-prueba');
+  it('accepts a cookie issued by the legacy algorithm (frozen copy)', async () => {
+    // Same derivation as the e2e environment (APP_PASSWORD set, SESSION_SECRET empty).
+    const secret = legacySecret('clave-de-prueba');
+    const setCookie = legacyCookieSesion(secret, 'Legado', Date.now(), false);
     const res = await request(app.getHttpServer()).get('/api/yo').set('Cookie', setCookie.split(';')[0]).expect(200);
     expect(res.body).toEqual({ nombre: 'Legado' });
   });

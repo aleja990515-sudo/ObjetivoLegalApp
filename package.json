@@ -2,20 +2,18 @@
   "name": "seguimiento-procesos",
   "version": "1.0.0",
   "description": "Seguimiento de procesos de la Rama Judicial de Colombia para una oficina",
-  "main": "server.js",
   "private": true,
   "workspaces": [
     "apps/*"
   ],
   "scripts": {
-    "start": "node server.js",
-    "start:legacy": "node server.js",
+    "start": "npm run -w apps/api start:prod",
     "dev:api": "npm run -w apps/api start:dev",
     "build:api": "npm run -w apps/api build",
     "start:api": "npm run -w apps/api start:prod",
     "test:api": "npm test -w apps/api",
-    "db:up": "podman compose up -d",
-    "db:down": "podman compose down"
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
   },
   "engines": {
     "node": ">=20.19"
