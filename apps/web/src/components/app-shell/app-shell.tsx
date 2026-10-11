@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/icon';
+import { ArrowsClockwise, SignOut } from '@phosphor-icons/react';
 import { Sidebar, type Conteos } from '@/components/sidebar/sidebar';
 import { useSession } from '@/features/session/session-guard';
 import { revisarTodos } from '@/features/procesos/revisar-todos';
@@ -82,10 +82,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             aria-label="Revisar todos"
             className="size-11"
           >
-            <Icon name="i-arrows-clockwise" />
+            <ArrowsClockwise aria-hidden="true" className="size-5" />
           </Button>
           <Button variant="outline" size="icon" onClick={onSalir} aria-label="Salir" className="size-11">
-            <Icon name="i-sign-out" />
+            <SignOut aria-hidden="true" className="size-5" />
           </Button>
         </div>
       </header>

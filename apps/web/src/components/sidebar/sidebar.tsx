@@ -4,7 +4,15 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/icon';
+import {
+  ArrowsClockwise,
+  Bell,
+  CalendarBlank,
+  Scales,
+  SignOut,
+  UserCircle,
+  type Icon as IconoPhosphor,
+} from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 
 export interface Conteos {
@@ -22,11 +30,11 @@ interface Props {
   onSalir: () => void;
 }
 
-const ENLACES = [
-  { href: '/', etiqueta: 'Procesos', icono: 'i-folder-simple' },
-  { href: '/novedades', etiqueta: 'Novedades', icono: 'i-bell' },
-  { href: '/agenda', etiqueta: 'Agenda', icono: 'i-calendar-blank' },
-] as const;
+const ENLACES: readonly { href: string; etiqueta: string; icono: IconoPhosphor }[] = [
+  { href: '/', etiqueta: 'Procesos', icono: Scales },
+  { href: '/novedades', etiqueta: 'Novedades', icono: Bell },
+  { href: '/agenda', etiqueta: 'Agenda', icono: CalendarBlank },
+];
 
 /*
  * Tres formas segun el ancho:
@@ -78,7 +86,7 @@ export function Sidebar({ nombre, conteos, revisando, onRevisar, onSalir }: Prop
                 'min-[640px]:max-[959px]:w-full min-[640px]:max-[959px]:justify-center',
               )}
             >
-              <Icon name={enlace.icono} />
+              <enlace.icono aria-hidden="true" className="size-5 shrink-0" />
               <span className={SOLO_LECTORES}>{enlace.etiqueta}</span>
               {cuenta > 0 && (
                 <Badge
@@ -97,7 +105,10 @@ export function Sidebar({ nombre, conteos, revisando, onRevisar, onSalir }: Prop
       </nav>
 
       <div className="mt-auto hidden grid-cols-1 gap-2 border-t border-line pt-3.5 min-[640px]:grid min-[640px]:w-full">
-        <p className={cn('m-0 px-2.5 text-sm break-words text-muted-foreground', SOLO_LECTORES)}>{nombre}</p>
+        <p className={cn('m-0 flex items-center gap-2 px-2.5 text-sm break-words text-muted-foreground', SOLO_LECTORES)}>
+          <UserCircle aria-hidden="true" className="size-5 shrink-0" />
+          {nombre}
+        </p>
         <Button
           variant="outline"
           onClick={onRevisar}
@@ -105,11 +116,11 @@ export function Sidebar({ nombre, conteos, revisando, onRevisar, onSalir }: Prop
           aria-busy={revisando}
           className="w-full justify-start min-[640px]:max-[959px]:justify-center"
         >
-          <Icon name="i-arrows-clockwise" />
+          <ArrowsClockwise aria-hidden="true" className="size-4" />
           <span className={SOLO_LECTORES}>Revisar todos</span>
         </Button>
         <Button variant="outline" onClick={onSalir} className="w-full justify-start min-[640px]:max-[959px]:justify-center">
-          <Icon name="i-sign-out" />
+          <SignOut aria-hidden="true" className="size-4" />
           <span className={SOLO_LECTORES}>Salir</span>
         </Button>
       </div>

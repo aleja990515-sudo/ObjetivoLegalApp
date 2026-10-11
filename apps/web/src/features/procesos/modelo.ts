@@ -1,0 +1,120 @@
+// Tipos de la API (apps/api). Los nombres de propiedad son el contrato público en español.
+
+export interface Actuacion {
+  id: number;
+  cons: number | null;
+  fecha: string | null;
+  actuacion: string | null;
+  anotacion: string | null;
+  fechaInicial: string | null;
+  fechaFinal: string | null;
+  fechaRegistro: string | null;
+  conDocumentos: boolean | null;
+}
+
+export interface Sujeto {
+  tipo: string | null;
+  nombre: string | null;
+}
+
+export interface Nota {
+  id: string;
+  texto: string;
+  autor: string;
+  fecha: string;
+}
+
+export interface Tarea {
+  id: string;
+  titulo: string;
+  /** `YYYY-MM-DD`. */
+  fecha: string;
+  /** `HH:MM` o cadena vacía. */
+  hora: string;
+  responsable: string;
+  idActuacion: string | null;
+  hecha: boolean;
+  hechaPor: string | null;
+  autor: string;
+  creada: string;
+}
+
+/** Resumen de un proceso: filas de `GET /api/procesos` y respuestas de mutaciones. */
+export interface ProcesoResumen {
+  idProceso: string;
+  radicado: string;
+  alias: string;
+  despacho: string | null;
+  claseProceso: unknown;
+  sujetos: string | null;
+  ultimaActuacion: Actuacion | null;
+  ultimoAuto: Actuacion | null;
+  noVistas: number;
+  nuevaInstancia: boolean;
+  proximaTarea: Tarea | null;
+  tareasVencidas: number;
+  responsable: string;
+  etiquetas: string[];
+  ultimaConsulta: string | null;
+  agregadoPor: string;
+  error: string | null;
+}
+
+/** Vista completa de `GET /api/procesos/:id` y de las mutaciones de notas y tareas. */
+export interface ProcesoDetalle extends Omit<ProcesoResumen, 'sujetos'> {
+  detalle: Record<string, unknown>;
+  sujetos: Sujeto[];
+  actuaciones: Actuacion[];
+  noVistasIds: number[];
+  notas: Nota[];
+  tareas: Tarea[];
+}
+
+export interface ListaProcesos {
+  procesos: ProcesoResumen[];
+  ultimaRevision: string | null;
+}
+
+export interface ProcesoPrivado {
+  idProceso: string;
+  privado: true;
+}
+
+export interface RespuestaAgregar {
+  agregados: (ProcesoResumen | ProcesoPrivado)[];
+}
+
+interface NovedadBase {
+  idProceso: string;
+  radicado: string;
+  alias: string;
+  despacho: string | null;
+}
+
+/** Elemento de `GET /api/novedades` (array plano). */
+export type Novedad = NovedadBase &
+  ({ tipo: 'instancia'; fecha: string } | { tipo: 'actuacion'; fecha: string | null; actuacion: Actuacion });
+
+/** Tarea con su proceso, como la devuelve `GET /api/agenda`. */
+export interface TareaAgenda extends Tarea {
+  idProceso: string;
+  radicado: string;
+  alias: string;
+  despacho: string | null;
+}
+
+export interface RespuestaAgenda {
+  tareas: TareaAgenda[];
+  /** Fecha de Bogotá `YYYY-MM-DD`. */
+  hoy: string;
+  /** Enlace absoluto de la suscripción ICS, con token. */
+  ics: string;
+}
+
+export interface DocumentoActuacion {
+  id: unknown;
+  tipo: unknown;
+  fechaCarga: unknown;
+  nombre: string;
+  url: string;
+}

@@ -114,15 +114,6 @@
 }
 
 /* ---------- Base ---------- */
-/* Iconos Phosphor de public/icons.svg (ver components/icon.tsx). */
-.icon {
-  width: 1.15em;
-  height: 1.15em;
-  flex: none;
-  vertical-align: -0.2em;
-  fill: none;
-  stroke: currentColor;
-}
 
 body {
   font-family: var(--font-sans);

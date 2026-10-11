@@ -1,5 +1,5 @@
-import { PageHeader } from '@/components/page-header/page-header';
+import { VistaNovedades } from '@/features/novedades/vista-novedades';
 
 export default function NovedadesPage() {
-  return <PageHeader titulo="Novedades" descripcion="Vista en construcción." />;
+  return <VistaNovedades />;
 }

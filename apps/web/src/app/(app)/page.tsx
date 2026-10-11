@@ -1,5 +1,5 @@
-import { PageHeader } from '@/components/page-header/page-header';
+import { VistaLista } from '@/features/procesos/vista-lista';
 
 export default function ProcesosPage() {
-  return <PageHeader titulo="Procesos" descripcion="Vista en construcción." />;
+  return <VistaLista />;
 }
