@@ -15,7 +15,7 @@ describe('AuthService', () => {
     const { user, cookie } = await auth.login(`  ${'x'.repeat(70)}  `, 'secreta');
     expect(user).toEqual({ nombre: 'x'.repeat(60) });
     expect(cookie).toMatch(/^sesion=[^;]+; HttpOnly; SameSite=Lax; Path=\/; Max-Age=2592000$/);
-    expect(readSession(auth.secret, cookie.split(';')[0], Date.now())).toEqual(user);
+    expect(readSession(auth.secret, cookie.split(';')[0], Temporal.Now.instant().epochMilliseconds)).toEqual(user);
     expect(sleep).not.toHaveBeenCalled();
   });
 

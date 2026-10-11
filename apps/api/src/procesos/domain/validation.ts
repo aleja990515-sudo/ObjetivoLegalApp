@@ -1,5 +1,6 @@
 // Input normalisation ported from the legacy `texto`, `fechaValida` and the
 // PATCH/POST branches of `rutasProtegidas` (lib/app.js:237-239, 312-375).
+import { enRangoCalendario } from '../../common/time/temporal.js';
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const HORA = /^\d{2}:\d{2}$/;
@@ -24,9 +25,9 @@ export function texto(valor: unknown, max: number): string {
   return comoTexto(valor).trim().slice(0, max);
 }
 
-/** `YYYY-MM-DD` that also parses as a date (legacy `fechaValida`). */
+/** `YYYY-MM-DD` that the legacy date parser accepted: month 1-12, day 1-31 (legacy `fechaValida`). */
 export function fechaValida(valor: unknown): valor is string {
-  return typeof valor === 'string' && FECHA.test(valor) && !Number.isNaN(new Date(`${valor}T00:00:00Z`).getTime());
+  return typeof valor === 'string' && FECHA.test(valor) && enRangoCalendario(valor);
 }
 
 /** `HH:MM` or the empty string when the value is anything else. */

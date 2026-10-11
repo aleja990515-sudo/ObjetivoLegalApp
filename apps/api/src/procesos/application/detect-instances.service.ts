@@ -4,6 +4,7 @@ import { PROCESO_REPOSITORY, type ProcesoRepository } from '../domain/proceso.re
 import { newInstance } from '../domain/refresh.js';
 import { CPNU_PORT, type CpnuPort } from './ports/cpnu.port.js';
 import { RefreshProcesoService } from './refresh-proceso.service.js';
+import { ahoraIso } from '../../common/time/temporal.js';
 
 /**
  * Searches a radicado again and follows instances that appeared since (e.g. an
@@ -24,7 +25,7 @@ export class DetectInstancesService {
     let added = 0;
     for (const found of await this.cpnu.searchRadicado(radicado)) {
       if (known.has(String(found.idProceso)) || found.esPrivado) continue;
-      const proceso = await this.refresher.hydrateNew(newInstance(found, radicado, base, new Date().toISOString()));
+      const proceso = await this.refresher.hydrateNew(newInstance(found, radicado, base, ahoraIso()));
       if (await this.procesos.insert(proceso)) added++;
     }
     return added;

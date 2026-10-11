@@ -1,7 +1,7 @@
 import { legacyCookieSesion, legacyLeerSesion, legacySecret } from './legacy-session.fixture.js';
 import { deriveSecret, readSession, safeEqual, sessionCookie } from './session.js';
 
-const NOW = Date.UTC(2026, 9, 10, 12);
+const NOW = Temporal.Instant.from('2026-10-10T12:00:00Z').epochMilliseconds;
 const cookieHeader = (setCookie: string) => setCookie.split(';')[0];
 
 describe('session (legacy compatible)', () => {

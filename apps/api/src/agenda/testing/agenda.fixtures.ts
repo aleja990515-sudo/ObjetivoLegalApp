@@ -4,7 +4,7 @@ import type { Proceso } from '../../procesos/domain/proceso.js';
 import { proceso, tarea } from '../../procesos/testing/proceso.fixtures.js';
 
 /** Fixed "now" (DTSTAMP and "today" in the tests). */
-export const AHORA = new Date('2026-10-10T12:00:00Z');
+export const AHORA = Temporal.Instant.from('2026-10-10T12:00:00Z');
 
 export function agendaFixture(): Proceso[] {
   return [

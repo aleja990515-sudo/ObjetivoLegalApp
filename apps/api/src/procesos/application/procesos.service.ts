@@ -2,7 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { ApiError } from '../../common/http/api-error.js';
 import type { SessionUser } from '../../auth/domain/session.js';
-import { fechaBogota } from '../domain/bogota-time.js';
+import { hoyBogota } from '../domain/bogota-time.js';
+import { ahoraIso } from '../../common/time/temporal.js';
 import { META_REPOSITORY, META_ULTIMA_REVISION, type MetaRepository } from '../domain/meta.repository.js';
 import { newProceso } from '../domain/refresh.js';
 import {
@@ -44,8 +45,8 @@ export interface ListaProcesos {
 export type ProcesoActualizado = ProcesoResumen & { instanciasNuevas: number };
 
 const nuevoId = (): string => randomBytes(6).toString('hex');
-const ahora = (): string => new Date().toISOString();
-const hoy = (): string => fechaBogota(new Date());
+const ahora = (): string => ahoraIso();
+const hoy = (): string => hoyBogota();
 
 /** Use cases of the procesos routes (legacy `rutasProtegidas`, lib/app.js:241-383). */
 @Injectable()

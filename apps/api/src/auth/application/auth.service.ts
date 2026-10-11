@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ApiError } from '../../common/http/api-error.js';
 import { SLEEP, type Sleep } from '../../common/time/sleep.js';
+import { epochMsAhora } from '../../common/time/temporal.js';
 import { LEGACY_DEFAULT_PASSWORD, type AppConfig } from '../../config/app-config.js';
 import { InjectAppConfig } from '../../config/app-config.provider.js';
 import {
@@ -42,11 +43,11 @@ export class AuthService {
     }
     const user = { nombre: String(nombre).trim().slice(0, 60) };
     const secure = this.config.vercel || this.config.nodeEnv === 'production';
-    return { user, cookie: sessionCookie(this.secret, user.nombre, Date.now(), secure) };
+    return { user, cookie: sessionCookie(this.secret, user.nombre, epochMsAhora(), secure) };
   }
 
   readSession(cookieHeader: string | undefined): SessionUser | null {
-    return readSession(this.secret, cookieHeader, Date.now());
+    return readSession(this.secret, cookieHeader, epochMsAhora());
   }
 
   get logoutCookie(): string {

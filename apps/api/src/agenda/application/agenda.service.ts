@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AUTH_SECRET } from '../../auth/application/auth.service.js';
 import { safeEqual } from '../../common/security/safe-equal.js';
-import { fechaBogota } from '../../procesos/domain/bogota-time.js';
+import { hoyBogota } from '../../procesos/domain/bogota-time.js';
 import { PROCESO_REPOSITORY, type ProcesoRepository } from '../../procesos/domain/proceso.repository.js';
 import { generarIcs } from '../domain/ics.js';
 import { tokenAgenda } from '../domain/calendar-token.js';
@@ -27,7 +27,7 @@ export class AgendaService {
   async agenda(origen: string): Promise<AgendaVista> {
     return {
       tareas: tareasAgenda(await this.procesos.findAll()),
-      hoy: fechaBogota(new Date()),
+      hoy: hoyBogota(),
       ics: `${origen}/api/agenda.ics?t=${this.token()}`,
     };
   }
@@ -37,7 +37,7 @@ export class AgendaService {
   }
 
   async calendario(): Promise<string> {
-    return generarIcs(await this.procesos.findAll(), new Date());
+    return generarIcs(await this.procesos.findAll(), Temporal.Now.instant());
   }
 
   private token(): string {

@@ -66,7 +66,7 @@ describe('Auth (e2e)', () => {
   it('accepts a cookie issued by the legacy algorithm (frozen copy)', async () => {
     // Same derivation as the e2e environment (APP_PASSWORD set, SESSION_SECRET empty).
     const secret = legacySecret('clave-de-prueba');
-    const setCookie = legacyCookieSesion(secret, 'Legado', Date.now(), false);
+    const setCookie = legacyCookieSesion(secret, 'Legado', Temporal.Now.instant().epochMilliseconds, false);
     const res = await request(app.getHttpServer()).get('/api/yo').set('Cookie', setCookie.split(';')[0]).expect(200);
     expect(res.body).toEqual({ nombre: 'Legado' });
   });

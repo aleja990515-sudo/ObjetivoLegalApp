@@ -1,4 +1,5 @@
 import type { Actuacion, Nota, Proceso, ProcesoCpnuState, Sujeto, Tarea } from '../../domain/proceso.js';
+import { isoMs } from '../../../common/time/temporal.js';
 import { ActuacionEntity, NotaEntity, ProcesoEntity, SujetoEntity, TareaEntity } from './entities/index.js';
 
 export interface ProcesoRows {
@@ -9,7 +10,14 @@ export interface ProcesoRows {
   tareas: TareaEntity[];
 }
 
-const iso = (date: Date | null): string | null => (date ? date.toISOString() : null);
+/**
+ * ORM boundary: TypeORM columns stay `Date`, while domain and API carry ISO
+ * strings (`YYYY-MM-DDTHH:mm:ss.sssZ`). These two functions are the only conversion.
+ */
+export const isoDesdeOrm = (date: Date): string => isoMs(Temporal.Instant.fromEpochMilliseconds(date.getTime()));
+export const ormDesdeIso = (iso: string): Date => new Date(Temporal.Instant.from(iso).epochMilliseconds);
+
+const iso = (date: Date | null): string | null => (date ? isoDesdeOrm(date) : null);
 const byOrden = (a: { orden: number }, b: { orden: number }) => a.orden - b.orden;
 
 export function toActuacion(row: ActuacionEntity): Actuacion {
@@ -27,7 +35,7 @@ export function toActuacion(row: ActuacionEntity): Actuacion {
 }
 
 export function toNota(row: NotaEntity): Nota {
-  return { id: row.id, texto: row.texto, autor: row.autor, fecha: row.fecha.toISOString() };
+  return { id: row.id, texto: row.texto, autor: row.autor, fecha: isoDesdeOrm(row.fecha) };
 }
 
 export function toTarea(row: TareaEntity): Tarea {
@@ -41,7 +49,7 @@ export function toTarea(row: TareaEntity): Tarea {
     hecha: row.hecha,
     hechaPor: row.hechaPor,
     autor: row.autor,
-    creada: row.creada.toISOString(),
+    creada: isoDesdeOrm(row.creada),
   };
 }
 
@@ -77,7 +85,7 @@ export function toProceso({ proceso, actuaciones, sujetos, notas, tareas }: Proc
     notas: [...notas].sort((a, b) => b.seq - a.seq).map(toNota),
     tareas: [...tareas].sort((a, b) => a.seq - b.seq).map(toTarea),
     agregadoPor: proceso.agregadoPor,
-    agregado: proceso.agregado.toISOString(),
+    agregado: isoDesdeOrm(proceso.agregado),
   };
 }
 
@@ -89,13 +97,13 @@ export function toProcesoEntity(p: Proceso): ProcesoEntity {
     sujetosTexto: p.sujetosTexto,
     detalle: p.detalle,
     error: p.error,
-    ultimaConsulta: p.ultimaConsulta ? new Date(p.ultimaConsulta) : null,
+    ultimaConsulta: p.ultimaConsulta ? ormDesdeIso(p.ultimaConsulta) : null,
     alias: p.alias,
     responsable: p.responsable,
     etiquetas: p.etiquetas,
     nuevaInstancia: p.nuevaInstancia,
     agregadoPor: p.agregadoPor,
-    agregado: new Date(p.agregado),
+    agregado: ormDesdeIso(p.agregado),
   });
 }
 
@@ -146,7 +154,7 @@ export function toNotaEntity(idProceso: string, nota: Nota): NotaEntity {
     idProceso,
     texto: nota.texto,
     autor: nota.autor,
-    fecha: new Date(nota.fecha),
+    fecha: ormDesdeIso(nota.fecha),
   });
 }
 
@@ -162,6 +170,6 @@ export function toTareaEntity(idProceso: string, tarea: Tarea): TareaEntity {
     hecha: tarea.hecha,
     hechaPor: tarea.hechaPor,
     autor: tarea.autor,
-    creada: new Date(tarea.creada),
+    creada: ormDesdeIso(tarea.creada),
   });
 }

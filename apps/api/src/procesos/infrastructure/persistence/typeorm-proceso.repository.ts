@@ -20,6 +20,7 @@ import {
   toProcesoEntity,
   toSujetoEntities,
   toTareaEntity,
+  ormDesdeIso,
 } from './proceso.mapper.js';
 
 const CHUNK = 500;
@@ -151,7 +152,7 @@ export class TypeOrmProcesoRepository implements ProcesoRepository {
         {
           detalle: next.detalle as ProcesoEntity['detalle'],
           error: next.error,
-          ultimaConsulta: next.ultimaConsulta ? new Date(next.ultimaConsulta) : null,
+          ultimaConsulta: next.ultimaConsulta ? ormDesdeIso(next.ultimaConsulta) : null,
         },
       );
       if (next.actuaciones !== current.actuaciones) {

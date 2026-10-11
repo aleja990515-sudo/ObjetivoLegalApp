@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { SLEEP, type Sleep } from '../../common/time/sleep.js';
+import { ahoraIso } from '../../common/time/temporal.js';
 import { META_REPOSITORY, META_ULTIMA_REVISION, type MetaRepository } from '../domain/meta.repository.js';
 import type { Proceso } from '../domain/proceso.js';
 import { PROCESO_REPOSITORY, type ProcesoRepository } from '../domain/proceso.repository.js';
@@ -70,7 +71,7 @@ export class ReviewService {
       await this.sleep(PAUSE_PER_RADICADO_MS);
     }
 
-    await this.meta.set(META_ULTIMA_REVISION, new Date().toISOString());
+    await this.meta.set(META_ULTIMA_REVISION, ahoraIso());
     this.logger.log(`[revision] nuevas=${nuevas} instancias=${instancias} errores=${errores}`);
     return { nuevas, instancias, errores };
   }

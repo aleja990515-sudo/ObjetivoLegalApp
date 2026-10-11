@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Proceso, ProcesoCpnuState } from '../domain/proceso.js';
 import { PROCESO_REPOSITORY, type ProcesoRepository } from '../domain/proceso.repository.js';
 import { applyRefresh, applyRefreshError } from '../domain/refresh.js';
+import { ahoraIso } from '../../common/time/temporal.js';
 import { errorMessage } from './error-message.js';
 import { CPNU_PORT, type CpnuPort } from './ports/cpnu.port.js';
 
@@ -29,7 +30,7 @@ export class RefreshProcesoService {
     let mutate: (current: ProcesoCpnuState) => ProcesoCpnuState;
     try {
       const loaded = await this.cpnu.loadProceso(idProceso);
-      const now = new Date().toISOString();
+      const now = ahoraIso();
       mutate = (current) => {
         const outcome = applyRefresh(current, loaded, now);
         nuevas = outcome.nuevas;
@@ -47,7 +48,7 @@ export class RefreshProcesoService {
   async hydrateNew(proceso: Proceso): Promise<Proceso> {
     try {
       const loaded = await this.cpnu.loadProceso(proceso.idProceso);
-      return { ...proceso, ...applyRefresh(proceso, loaded, new Date().toISOString()).state };
+      return { ...proceso, ...applyRefresh(proceso, loaded, ahoraIso()).state };
     } catch (e) {
       return { ...proceso, ...applyRefreshError(proceso, errorMessage(e)) };
     }

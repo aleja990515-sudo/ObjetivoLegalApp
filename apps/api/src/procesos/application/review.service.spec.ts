@@ -35,14 +35,14 @@ describe('ReviewService', () => {
     cpnu.radicados.set(R1, [encontrado('1'), encontrado('2'), encontrado('9')]);
     cpnu.radicados.set(R2, [encontrado('3')]);
 
-    const before = Date.now();
+    const before = Temporal.Now.instant().epochMilliseconds;
     expect(await service.reviewAll()).toEqual({ nuevas: 1, instancias: 1, errores: 1 });
 
     expect(cpnu.calls.filter((c) => c.startsWith('search:'))).toEqual([`search:${R1}`, `search:${R2}`]);
     // The first proceso of each radicado is the base of new instances.
     expect((await repo.findById('9'))?.alias).toBe('Primero (nueva instancia)');
     expect((await repo.findById('3'))?.error).toBe('La Rama Judicial respondió 500');
-    expect(Date.parse((await meta.get(META_ULTIMA_REVISION)) ?? '')).toBeGreaterThanOrEqual(before);
+    expect(Temporal.Instant.from((await meta.get(META_ULTIMA_REVISION)) ?? '').epochMilliseconds).toBeGreaterThanOrEqual(before);
   });
 
   it('paces CPNU calls: 1s per proceso and 0.5s per radicado', async () => {

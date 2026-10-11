@@ -7,7 +7,7 @@ describe('generarIcs (legacy ICS output)', () => {
   // The frozen legacy copy reads the clock itself, so only Date is faked.
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(AHORA);
+    vi.setSystemTime(AHORA.epochMilliseconds);
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -52,6 +52,20 @@ describe('generarIcs (legacy ICS output)', () => {
     expect(out).toContain('SUMMARY:Término: traslado – 11001310300120190099999');
     expect(out).toContain('DESCRIPTION:Radicado 11001310300120190099999\\nJUZGADO 002\r\n');
     expect(out).toContain('BEGIN:VALARM\r\nACTION:DISPLAY\r\nDESCRIPTION:Recordatorio\r\nTRIGGER:-P1D\r\nEND:VALARM');
+  });
+
+  it('matches the legacy output for day rollover (2026-02-30), 24:00 and year-end all-day tasks', () => {
+    const borde = [
+      proceso('7', {
+        radicado: '11001310300120190000007',
+        tareas: [
+          tarea('b1', { titulo: 'Rollover', fecha: '2026-02-30', hora: '23:30' }),
+          tarea('b2', { titulo: 'Medianoche', fecha: '2026-11-01', hora: '24:00' }),
+          tarea('b3', { titulo: 'Abril', fecha: '2026-04-31' }),
+        ],
+      }),
+    ];
+    expect(generarIcs(borde, AHORA)).toBe(legacyGenerarIcs(borde));
   });
 
   it('keeps the legacy behaviour of not folding lines longer than 75 octets (known gap, preserved)', () => {

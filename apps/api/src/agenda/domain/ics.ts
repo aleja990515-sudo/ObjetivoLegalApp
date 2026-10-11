@@ -2,23 +2,38 @@
 // (lib/app.js:145-168). Known legacy gap kept on purpose: no 75-octet line folding.
 import type { Proceso } from '../../procesos/domain/proceso.js';
 import { courtName } from '../../procesos/domain/proceso-resumen.js';
+import { fechaCalendario } from '../../common/time/temporal.js';
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const HORA = /^\d{2}:\d{2}$/;
-/** Colombia is UTC-5 all year round. */
+/** Colombia is UTC-5 all year round (offset form of the Bogotá zone). */
 const OFFSET_COLOMBIA = '-05:00';
-const UNA_HORA_MS = 3600e3;
 
 /** Escapes a text value for iCalendar (legacy `icsTexto`). */
 export function icsTexto(valor: string): string {
   return valor.replace(/[\;,]/g, (c) => '\\' + c).replace(/\r?\n/g, '\\n');
 }
 
-/** UTC basic format, e.g. `20261012T140000Z`. */
-const fechaUtc = (fecha: Date): string => fecha.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+/** UTC basic format without fractions, e.g. `20261012T140000Z`. */
+const fechaUtc = (instante: Temporal.Instant): string =>
+  instante.toString({ fractionalSecondDigits: 0 }).replace(/[-:]/g, '');
+
+/**
+ * Instant of a timed task in Colombia. `24:00` is the next midnight, as the legacy
+ * parser read it; other out-of-range hours throw a RangeError.
+ */
+function inicioColombia(fecha: string, hora: string): Temporal.Instant {
+  const dia = fechaCalendario(fecha);
+  const [horas, minutos] = hora.split(':').map(Number);
+  if (horas === 24 && minutos === 0) {
+    return dia.add({ days: 1 }).toZonedDateTime({ timeZone: OFFSET_COLOMBIA }).toInstant();
+  }
+  const horaDelDia = Temporal.PlainTime.from({ hour: horas, minute: minutos });
+  return dia.toZonedDateTime({ timeZone: OFFSET_COLOMBIA, plainTime: horaDelDia }).toInstant();
+}
 
 /** Calendar of the pending-or-done tasks that have a valid date; done tasks are skipped. */
-export function generarIcs(procesos: Proceso[], ahora: Date): string {
+export function generarIcs(procesos: Proceso[], ahora: Temporal.Instant): string {
   const dtstamp = fechaUtc(ahora);
   const lineas = [
     'BEGIN:VCALENDAR',
@@ -34,16 +49,12 @@ export function generarIcs(procesos: Proceso[], ahora: Date): string {
       if (t.hecha || !FECHA.test(t.fecha)) continue;
       lineas.push('BEGIN:VEVENT', `UID:${t.id}@misprocesos`, `DTSTAMP:${dtstamp}`);
       if (HORA.test(t.hora)) {
-        const inicio = new Date(`${t.fecha}T${t.hora}:00${OFFSET_COLOMBIA}`);
-        lineas.push(`DTSTART:${fechaUtc(inicio)}`, `DTEND:${fechaUtc(new Date(inicio.getTime() + UNA_HORA_MS))}`);
+        const inicio = inicioColombia(t.fecha, t.hora);
+        lineas.push(`DTSTART:${fechaUtc(inicio)}`, `DTEND:${fechaUtc(inicio.add({ hours: 1 }))}`);
       } else {
-        const siguiente = new Date(`${t.fecha}T00:00:00Z`);
-        siguiente.setUTCDate(siguiente.getUTCDate() + 1);
         const dia = t.fecha.replace(/-/g, '');
-        lineas.push(
-          `DTSTART;VALUE=DATE:${dia}`,
-          `DTEND;VALUE=DATE:${siguiente.toISOString().slice(0, 10).replace(/-/g, '')}`,
-        );
+        const siguiente = fechaCalendario(t.fecha).add({ days: 1 }).toString().replace(/-/g, '');
+        lineas.push(`DTSTART;VALUE=DATE:${dia}`, `DTEND;VALUE=DATE:${siguiente}`);
       }
       const responsable = t.responsable ? '\nResponsable: ' + t.responsable : '';
       lineas.push(
