@@ -2,17 +2,19 @@ import { Module } from '@nestjs/common';
 import { DetectInstancesService } from './application/detect-instances.service.js';
 import { CPNU_PORT } from './application/ports/cpnu.port.js';
 import { RefreshProcesoService } from './application/refresh-proceso.service.js';
+import { ProcesosService } from './application/procesos.service.js';
 import { ReviewService } from './application/review.service.js';
 import { META_REPOSITORY } from './domain/meta.repository.js';
 import { PROCESO_REPOSITORY } from './domain/proceso.repository.js';
 import { CpnuHttpAdapter } from './infrastructure/cpnu/cpnu-http.adapter.js';
 import { CronController } from './infrastructure/http/cron.controller.js';
+import { ProcesosController } from './infrastructure/http/procesos.controller.js';
 import { TypeOrmMetaRepository } from './infrastructure/persistence/typeorm-meta.repository.js';
 import { TypeOrmProcesoRepository } from './infrastructure/persistence/typeorm-proceso.repository.js';
 import { ReviewScheduler } from './infrastructure/scheduling/review.scheduler.js';
 
 @Module({
-  controllers: [CronController],
+  controllers: [CronController, ProcesosController],
   providers: [
     { provide: PROCESO_REPOSITORY, useClass: TypeOrmProcesoRepository },
     { provide: META_REPOSITORY, useClass: TypeOrmMetaRepository },
@@ -21,6 +23,7 @@ import { ReviewScheduler } from './infrastructure/scheduling/review.scheduler.js
     DetectInstancesService,
     ReviewService,
     ReviewScheduler,
+    ProcesosService,
   ],
   exports: [
     PROCESO_REPOSITORY,
