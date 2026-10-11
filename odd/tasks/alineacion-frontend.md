@@ -140,9 +140,31 @@ Quedan registradas porque la auditoría es el artefacto reutilizable y dos afirm
 - **La frontera de grupo de la agenda es 16px contra 8px, no 4px contra 8px.** La aritmética estaba mal; la intención (que las fronteras de grupo se vean) se sostiene y quedó satisfecha con `gap-8`.
 - También erróneas: que la app está "en tipografía light" (es `font-medium`), que existen micro-etiquetas `uppercase tracking` en `src` (no existen), y el conteo de superficies no migrables (13, no 6).
 
+## Work-unit commits
+
+| Unidad | Commit | Alcance |
+|---|---|---|
+| WU-1 | `80d1916` | Tokens en `@theme inline`, sombra dark teñida, radio en `card`/`badge`, placeholder y altura en `input`, 5 primitivas nuevas |
+| WU-2 + WU-3 | `69a8022` | Migración de ~40 call sites, 11 layout breaks, tokens del shell, targets táctiles, elevación, breakpoints, 7 defectos de verificación |
+
+Rama `fix/alineacion-frontend`, sin push. `apps/web` es la única superficie tocada; `apps/api` intacto.
+
+## Final verification (padre, tras WU-3)
+
+```
+npm run lint:web      → oxlint, sin hallazgos
+npm run typecheck:web → tsc --noEmit, sin errores
+npm run test:web      → 12 archivos, 37 tests (36 previos + 1 test de regresión nuevo)
+npm run build:web     → 7 rutas emitidas
+```
+
+Test de regresión añadido en `features/detalle/vista-detalle.test.tsx:94`: verifica que un `<label>` que envuelve la fila de la casilla propaga el clic al checkbox y que el botón de borrar, al ser descendiente interactivo, no lo dispara. Esa era la invariante rota que la verificación independiente encontró.
+
+Riesgo residual aceptado: `text-xl` pasó a 1.375rem, así que los `<h1>` de `page-header`, login y registro grew visiblemente. Es el efecto buscado al hacer real la escala declarada, pero es un cambio visible y conviene revisarlo a ojo.
+
 ## Next step
 
-Ejecutar WU-3. No dar la mejora por terminada hasta que los siete defectos estén corregidos y las cuatro comprobaciones vuelvan a pasar.
+La mejora está cerrada. Pendiente del usuario: push de `fix/alineacion-frontend`, apertura de PR y decisión de merge. El pendiente #9 del documento de migración (verificación visual en móvil) sigue abierto y ahora es más fácil de evaluar, porque los targets táctiles y el colapso de breakpoints ya están corregidos.
 
 ## WU-3 — Correccion aplicada
 
