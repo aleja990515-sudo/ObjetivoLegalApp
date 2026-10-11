@@ -50,7 +50,7 @@ Desde la raíz (`npm run <script>`):
 - **Detalle** (`/procesos/[id]`): datos de la Rama, alias, responsable y etiquetas, revisado, actualizar, notas, agenda del proceso, sujetos y actuaciones con documentos bajo demanda.
 - **Novedades** (`/novedades`): actuaciones sin revisar y nuevas instancias.
 - **Agenda** (`/agenda`): actividades de todos los procesos y enlaces de suscripción al calendario.
-- **Ingreso** (`/login`): sin barra lateral. Las demás rutas comprueban la sesión con `/api/yo`.
+- **Ingreso** (`/login`) y **registro** (`/registro`): sin barra lateral. Las demás rutas comprueban la sesión con `/api/yo`.
 
 ## Iconos
 
@@ -68,10 +68,10 @@ Las pruebas de accesibilidad recorren cada vista con axe-core (sin las reglas de
 
 ## Estructura
 
-- `src/app/`: rutas. `(auth)/login` sin barra lateral; `(app)/` con el guard de sesión y el shell.
+- `src/app/`: rutas. `(auth)/login` y `(auth)/registro` sin barra lateral; `(app)/` con el guard de sesión y el shell.
 - `src/app/globals.css`: tokens de diseño (fuente única: colores, radios, tipografía) mapeados a Tailwind v4 (`@theme inline`) y a las variables de shadcn/ui. Modo oscuro según `prefers-color-scheme`.
 - `src/components/`: shell (`app-shell`, `sidebar`), `page-header`, estados (`estado`), diálogo de confirmación (`dialogo`) y `ui/` (componentes de shadcn/ui, estilo `base-vega`; se añaden con `npx shadcn@latest add <componente>`).
-- `src/features/`: una carpeta por área. `procesos/` (lista, filtros, formato, modelo de la API), `novedades/`, `detalle/` (cabecera, tareas, notas, actuaciones), `agenda/`, `login/`, `session/`, `shell/`.
+- `src/features/`: una carpeta por área. `procesos/` (lista, filtros, formato, modelo de la API), `novedades/`, `detalle/` (cabecera, tareas, notas, actuaciones), `agenda/`, `login/`, `registro/`, `session/`, `shell/`.
 - `src/lib/api.ts`: único punto de llamada a la API (`apiFetch`), con `ApiError` y el mensaje del servidor.
 - `src/testing/`: pruebas transversales de accesibilidad y contraste.
 - `src/fonts/`: fuentes Geist y Geist Mono en woff2 con licencia OFL.

@@ -25,7 +25,7 @@ npm run -w apps/api lint            # oxlint
 npm run -w apps/api typecheck
 ```
 
-Health/diagnostics: `GET /api/salud` (CPNU reachability, database status, whether `APP_PASSWORD` is configured).
+Health/diagnostics: `GET /api/salud` (CPNU reachability, database status, whether `DATA_ENCRYPTION_KEY` is configured so accounts can work).
 
 ## Architecture
 
@@ -35,12 +35,13 @@ Health/diagnostics: `GET /api/salud` (CPNU reachability, database status, whethe
 - `application/` — use cases (`ProcesosService`, `AgendaService`, `AuthService`, `RefreshProcesoService`, `DetectInstancesService`, `ReviewService`) and ports (`CpnuPort`, `ProcesoRepository`, `MetaRepository`) declared with Symbol tokens (`PROCESO_REPOSITORY`, `META_REPOSITORY`, `CPNU_PORT`, `AUTH_SECRET`).
 - `infrastructure/` — HTTP controllers, TypeORM entities and repositories, the CPNU HTTP adapter, the cron scheduler. TypeORM types never leave infrastructure.
 
-Modules: `auth` (legacy-compatible session cookie, login, logout, `/yo`, global `SessionGuard`), `procesos` (routes, CPNU client, refresh, instance detection, review, persistence), `agenda` (`/api/agenda`, public `/api/agenda.ics`), `salud`, `config` (typed env validation), `database` (DataSource, migrations), `common` (`ApiError`, exception filter, JSON body middleware, `safeEqual`).
+Modules: `auth` (session cookie signed with `SESSION_SECRET` carrying the user id, login by correo, logout, `/yo`, login rate limit, global `SessionGuard`), `usuarios` (accounts table, self-registration `POST /api/registro`, `AdministracionUsuarios` used by the `users:*` CLI in `src/cli/`), `procesos` (routes, CPNU client, refresh, instance detection, review, persistence), `agenda` (`/api/agenda`, public `/api/agenda.ics`), `salud`, `config` (typed env validation), `database` (DataSource, migrations), `common` (`ApiError`, exception filter, JSON body middleware, `safeEqual`).
 
 Key decisions:
 
 - Every route lives under the global `api` prefix. `public/` is served by Nest's static module with SPA fallback for non-API GETs.
-- The session cookie and the ICS token are compatible with the legacy algorithm (`SECRET = SESSION_SECRET || sha256('s:' + APP_PASSWORD)`); a frozen copy of the legacy algorithm (`auth/domain/legacy-session.fixture.ts`, `agenda/testing/legacy-ics.fixture.ts`) is the test oracle.
+- Accounts: passwords are hashed with scrypt (`scrypt$N$r$p$salt$hash`, parameters stored in the hash, `needsRehash` upgrades them at login). Personal data (cédula, celular, correo) is AES-256-GCM encrypted with keys derived from `DATA_ENCRYPTION_KEY` by HKDF; uniqueness and login use an HMAC-SHA256 index. New self-registered accounts are inactive until an operator runs `users:activate`. `APP_PASSWORD` is gone: sessions and the ICS token derive from `SESSION_SECRET` only, so cookies and calendar links issued under the old secret stop working once.
+- The frozen legacy oracle `agenda/testing/legacy-ics.fixture.ts` still pins the ICS output format; the legacy session fixture was removed with the shared password.
 - Errors render as `{ error: string }` through `ApiExceptionFilter`; `ApiError(status, message)` carries the legacy Spanish messages.
 - Refresh writes only CPNU-owned data inside a transaction that locks the proceso row (`SELECT ... FOR UPDATE`), so office edits are never clobbered and deleted procesos are never resurrected.
 - Scheduled review: `@nestjs/schedule` cron (`REVISION_CRON`, default `0 11 * * *` UTC) with a re-entrancy guard; `/api/cron` (Bearer `CRON_SECRET`) runs the same review on demand. CPNU pacing: 1 s per proceso, 0.5 s per radicado.
@@ -58,7 +59,9 @@ The new frontend is a Next.js 16 App Router app (TypeScript, Tailwind v4, shadcn
 
 ## Environment variables
 
-`DATABASE_URL` (required), `APP_PASSWORD` (required; the default `cambiar-esta-clave` is rejected on Vercel-like hosts), `SESSION_SECRET`, `CRON_SECRET`, `REVISION_CRON` (`off` disables the schedule), `DATABASE_CA_CERT` (PEM, verified TLS), `DATABASE_POOL_MAX` (5), `DATABASE_MIGRATIONS_RUN` (true), `PORT` (3000), `PUBLIC_DIR`, `NODE_ENV`. Nest loads a root `.env` (see `.env.example` once it exists).
+`DATABASE_URL` (required), `SESSION_SECRET` (required, at least 32 characters), `DATA_ENCRYPTION_KEY` (32 bytes in base64; required for accounts), `CRON_SECRET`, `REVISION_CRON` (`off` disables the schedule), `DATABASE_CA_CERT` (PEM, verified TLS), `DATABASE_POOL_MAX` (5), `DATABASE_MIGRATIONS_RUN` (true), `PORT` (3000), `PUBLIC_DIR`, `NODE_ENV`. Nest loads a root `.env` (see `.env.example` once it exists).
+
+Operator commands: `npm run users:create|users:activate|users:deactivate|users:password -- …` (root wrappers of `apps/api` scripts; the password is never an argument).
 
 ## Gotchas
 

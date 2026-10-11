@@ -41,8 +41,8 @@ en la **Consulta de Procesos Nacional Unificada (CPNU)** de la Rama Judicial.
    cp .env.example .env
    ```
 
-   Como mínimo, `APP_PASSWORD` y `DATABASE_URL`
-   (`postgres://objetivo:objetivo@127.0.0.1:5432/objetivo` para la base local).
+   Como mínimo, `DATABASE_URL` (`postgres://objetivo:objetivo@127.0.0.1:5432/objetivo`
+   para la base local), `SESSION_SECRET` y `DATA_ENCRYPTION_KEY` (ver la tabla de variables).
 
 4. Aplicar las migraciones de la base de datos:
 
@@ -50,7 +50,13 @@ en la **Consulta de Procesos Nacional Unificada (CPNU)** de la Rama Judicial.
    npm run -w apps/api migration:run
    ```
 
-5. Iniciar la API en modo desarrollo:
+5. Crear la primera cuenta de la oficina (ver [Cuentas de usuario](#cuentas-de-usuario)):
+
+   ```bash
+   npm run users:create -- ana@oficina.example "Ana Pérez" 1020304050 3001234567
+   ```
+
+6. Iniciar la API en modo desarrollo:
 
    ```bash
    npm run dev:api
@@ -59,7 +65,7 @@ en la **Consulta de Procesos Nacional Unificada (CPNU)** de la Rama Judicial.
    Abrir http://localhost:3000. Desde un celular en la misma red Wi-Fi:
    `http://<IP-del-PC>:3000`.
 
-6. (Opcional) Interfaz Next.js en un segundo terminal:
+7. (Opcional) Interfaz Next.js en un segundo terminal:
 
    ```bash
    npm run dev:web
@@ -90,9 +96,9 @@ npm run test:web                        # pruebas de la interfaz Next.js (apps/w
 
 | Variable | Obligatoria | Descripción |
 | --- | --- | --- |
-| `APP_PASSWORD` | Sí | Clave compartida de la oficina. |
 | `DATABASE_URL` | Sí | Conexión PostgreSQL (`postgres://…`). |
-| `SESSION_SECRET` | No | Texto largo y aleatorio para firmar las sesiones. Si se omite, se deriva de `APP_PASSWORD`. |
+| `SESSION_SECRET` | Sí | Texto aleatorio de al menos 32 caracteres para firmar las sesiones y el enlace del calendario. Generar con `openssl rand -base64 48`. |
+| `DATA_ENCRYPTION_KEY` | Sí para cuentas | 32 bytes en base64 para cifrar cédula, celular y correo. Generar con `openssl rand -base64 32`. **Haga copia de seguridad: sin esta clave los datos cifrados no se pueden leer.** |
 | `CRON_SECRET` | No | Clave del endpoint `/api/cron` (cabecera `Authorization: Bearer …`). |
 | `REVISION_CRON` | No | Horario de la revisión automática en UTC (por defecto `0 11 * * *`, 6:00 a. m. en Colombia). `off` la desactiva. |
 | `DATABASE_CA_CERT` | No | Certificado de la base de datos (contenido PEM) para conexión TLS verificada. |
@@ -101,6 +107,9 @@ npm run test:web                        # pruebas de la interfaz Next.js (apps/w
 | `PORT` | No | Puerto HTTP (por defecto 3000). |
 | `NODE_ENV` | No | `production` en el servidor. |
 
+Plantilla `.env.example`: pendiente de crear por la oficina. Debe incluir `DATABASE_URL`,
+`SESSION_SECRET` y `DATA_ENCRYPTION_KEY`, con la forma de generarlos indicada arriba.
+
 ## Despliegue
 
 - La API es NestJS sobre PostgreSQL. **No es compatible con Vercel**: la revisión
@@ -108,13 +117,43 @@ npm run test:web                        # pruebas de la interfaz Next.js (apps/w
   puede completar.
 - **Plataforma de alojamiento: pendiente de decisión.** Cualquier servicio que ejecute
   Node.js y permita una base PostgreSQL sirve (VPS, Render, Railway, etc.).
-- Antes de publicar, defina `APP_PASSWORD`, `DATABASE_URL` y `SESSION_SECRET`, y
-  compruebe `GET /api/salud`, que indica si la Rama responde y si la base de datos está
-  configurada.
+- Antes de publicar, defina `DATABASE_URL`, `SESSION_SECRET` y `DATA_ENCRYPTION_KEY`, y
+  compruebe `GET /api/salud`, que indica si la Rama responde, si la base de datos está
+  configurada y si el cifrado de datos personales está activo (`claveConfigurada`).
 
 > **Importante:** la API de la Rama Judicial a veces bloquea conexiones desde fuera de
 > Colombia. Si falla con error de conexión, use un servidor con IP colombiana o ejecute
 > la app en un PC de la oficina.
+
+## Cuentas de usuario
+
+Cada persona de la oficina entra con su **correo** y su **clave**. La clave se guarda
+solo como hash (scrypt); nadie, ni el operador, puede leerla.
+
+- **Autorregistro:** en `/registro` la persona llena nombre completo, cédula, correo,
+  celular (celular colombiano de 10 dígitos que empieza por 3) y clave (mínimo 12
+  caracteres), y acepta el tratamiento de datos (Ley 1581 de 2012). La cuenta queda
+  **inactiva**: no puede entrar hasta que la oficina la active.
+- **Activación:** la oficina activa la cuenta con `npm run users:activate -- <correo>`.
+- **Comandos del operador** (desde la raíz; ninguno acepta la clave como argumento):
+
+  ```bash
+  npm run users:create -- <correo> "<nombre completo>" <cédula> <celular>   # activa de inmediato
+  npm run users:activate -- <correo>
+  npm run users:deactivate -- <correo>
+  npm run users:password -- <correo>
+  ```
+
+  Cada comando que pide clave la solicita dos veces, sin mostrarla, y exige al menos 12
+  caracteres. Con entrada entubada (`echo … | npm run …`) lee una línea por pregunta.
+- **Datos personales:** cédula, celular y correo se guardan cifrados (AES-256-GCM con
+  `DATA_ENCRYPTION_KEY`). La unicidad y el inicio de sesión usan un índice HMAC-SHA256 con
+  una clave derivada distinta.
+- **Límite de intentos:** 5 fallos por IP y correo en 15 minutos, luego 429. El contador
+  vive en memoria: vale para **una sola instancia** del servidor.
+- **Calendario (`agenda.ics`):** el enlace ahora se deriva de `SESSION_SECRET`. El enlace
+  anterior dejó de funcionar una vez: copie de nuevo el enlace que devuelve `GET /api/agenda`
+  en su aplicación de calendario.
 
 ## Datos
 
