@@ -46,6 +46,16 @@ Key decisions:
 - Scheduled review: `@nestjs/schedule` cron (`REVISION_CRON`, default `0 11 * * *` UTC) with a re-entrancy guard; `/api/cron` (Bearer `CRON_SECRET`) runs the same review on demand. CPNU pacing: 1 s per proceso, 0.5 s per radicado.
 - Schema: `procesos`, `actuaciones` (with `no_vista`), `sujetos`, `notas`, `tareas`, `meta`. `synchronize` is off; schema changes go through migrations.
 
+## Next.js web app (`apps/web`)
+
+The new frontend is a Next.js 16 App Router app (TypeScript, Tailwind v4, shadcn/ui on the tokens in `src/app/globals.css`, Phosphor icons from `@phosphor-icons/react`). It replaces the vanilla `public/` UI view by view; `public/` is still served by the API until the cutover is decided.
+
+- Run order: `npm run dev:api` (port 3000), then `npm run dev:web` (port 3001). The browser talks only to Next; `apps/web/next.config.ts` rewrites `/api/*` to `API_ORIGIN` (default `http://localhost:3000`), so the `sesion` cookie stays first-party.
+- Checks: `npm run lint:web`, `npm run typecheck:web`, `npm run test:web` (Vitest + Testing Library, axe-core, WCAG contrast of the tokens), `npm run build:web`.
+- Layout: `src/app/(app)/` routes behind `SessionGuard` (calls `/api/yo`); `src/features/<area>/` holds the views and their API models (`features/procesos/modelo.ts` mirrors the API contract); `src/lib/api.ts` is the only place that calls the API.
+- Contract: the API contract is frozen to phase 1. Do not change `apps/api` from the web work; wire views to the controllers under `apps/api/src/**/infrastructure/http/`.
+- Copy and identifiers are in Spanish, with no em or en dashes in visible text. Business logic stays in `features/`, not in shared components.
+
 ## Environment variables
 
 `DATABASE_URL` (required), `APP_PASSWORD` (required; the default `cambiar-esta-clave` is rejected on Vercel-like hosts), `SESSION_SECRET`, `CRON_SECRET`, `REVISION_CRON` (`off` disables the schedule), `DATABASE_CA_CERT` (PEM, verified TLS), `DATABASE_POOL_MAX` (5), `DATABASE_MIGRATIONS_RUN` (true), `PORT` (3000), `PUBLIC_DIR`, `NODE_ENV`. Nest loads a root `.env` (see `.env.example` once it exists).

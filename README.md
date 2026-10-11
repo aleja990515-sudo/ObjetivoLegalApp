@@ -59,6 +59,16 @@ en la **Consulta de Procesos Nacional Unificada (CPNU)** de la Rama Judicial.
    Abrir http://localhost:3000. Desde un celular en la misma red Wi-Fi:
    `http://<IP-del-PC>:3000`.
 
+6. (Opcional) Interfaz Next.js en un segundo terminal:
+
+   ```bash
+   npm run dev:web
+   ```
+
+   Abrir http://localhost:3001. Next reenvía `/api/*` a la API del puerto 3000
+   (variable `API_ORIGIN` si la API está en otro lugar). Detalles en
+   [`apps/web/README.md`](apps/web/README.md).
+
 Para detener la base de datos: `npm run db:down`.
 
 ## Uso en el PC de la oficina
@@ -73,6 +83,7 @@ mientras la ventana esté abierta.
 npm test -w apps/api                    # pruebas unitarias
 docker compose up -d db-test            # base de pruebas en 127.0.0.1:5434
 npm run -w apps/api test:e2e            # pruebas de contrato contra PostgreSQL
+npm run test:web                        # pruebas de la interfaz Next.js (apps/web)
 ```
 
 ## Variables de entorno
