@@ -14,6 +14,8 @@ en la **Consulta de Procesos Nacional Unificada (CPNU)** de la Rama Judicial.
   como revisados.
 - Detalle: despacho, clase, sujetos procesales y todas las actuaciones; notas internas,
   tareas y términos con su agenda y enlace de calendario (.ics).
+- **Ver auto** en cada auto o sentencia: busca el PDF en los estados electrónicos de
+  Publicaciones Procesales (ver más abajo).
 - Acceso con el nombre de la persona + una clave compartida de la oficina.
 
 ## Requisitos
@@ -164,3 +166,28 @@ respaldar la lista use `pg_dump` sobre la base `objetivo`. Los procesos marcados
 
 La información proviene de la consulta pública de la Rama Judicial y es informativa;
 verifique siempre en el expediente o en la consulta oficial.
+
+## Autos (Publicaciones Procesales)
+
+La CPNU casi nunca adjunta el documento de un auto. **Ver auto** lo busca en los estados
+electrónicos del portal oficial [Publicaciones Procesales](https://publicacionesprocesales.ramajudicial.gov.co)
+(`GET /api/procesos/:id/actuaciones/:actuacionId/auto`, solo para autos y sentencias):
+
+- Despacho = los 12 primeros dígitos del radicado. Ventana de búsqueda: desde la fecha
+  del auto hasta la "Fijación estado" de la CPNU más 2 días hábiles (sin festivos por ahora).
+- Nivel de certeza visible: **PDF exacto** (el nombre del archivo lleva año y consecutivo
+  del radicado), **PDF del día, revisar** (el despacho publica un solo `AUTOS<fecha>.pdf`
+  con todos los autos del día), **Ver estado** (no se identificó el PDF) y **No encontrado**.
+- Solo enlaces: el servidor lee la página de inicio, los resultados de búsqueda y el
+  detalle de cada estado, y devuelve el enlace del PDF para que lo abra el navegador.
+  Nunca descarga, guarda ni reenvía PDF: `robots.txt` del portal prohíbe `/c/document_library/`,
+  `/documents/` y `/dtd/`, y el adaptador rechaza esas rutas.
+- Carga: una solicitud a la vez con al menos 2 s entre solicitudes, 60 s de espera, un
+  reintento ante 5xx o tiempo agotado. Ante 403, 429 o captcha se detiene 30 minutos y la
+  app responde "no disponible" sin afectar lo demás.
+- Los resultados se guardan por actuación (tabla `autos_publicados`): un PDF exacto o del
+  día no se vuelve a buscar; "Ver estado" y "No encontrado" se reintentan cada 3 días, hasta
+  5 búsquedas.
+- El portal no es una API documentada: si cambia su HTML, la función deja de encontrar
+  autos y el resto de la app sigue igual. Es una consulta informativa; verifique el
+  documento en el expediente.

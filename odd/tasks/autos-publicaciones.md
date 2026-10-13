@@ -34,7 +34,7 @@ Backend port `PublicacionesPort` + HTTP adapter with retries, timeouts, pacing a
 - 2026-10-11: document created; phase R pending.
 
 ## Next step
-Delegate phase R to one read-only research worker.
+See the end of this document.
 
 ## Phase R result (2026-10-11, read-only worker, 26 portal requests, 0 PDFs downloaded)
 - Session: filters and search need the `JSESSIONID` cookie from a first `GET /web/publicaciones-procesales/inicio`; without it the AJAX answer is 200 with 0 bytes. No `p_auth`, no special headers.
@@ -63,9 +63,36 @@ Delegate phase R to one read-only research worker.
 Conditions from phase P apply. TDD is off (user preference for this project); tests are still required, built from recorded and trimmed portal fixtures of both naming styles.
 
 ### Tasks
-- [ ] I1 Domain: matcher rules (skip date-only names; a `<year><consecutivo>`; b year+consecutivo with separators; c combined estado on the fijación date; else estado link), confidence levels `exacto` / `del_dia` / `estado` / `sin_resultado`, business-day search window (auto date to fijación + 2 business days, Colombian holidays not required in v1), estado title date parsing (both title formats). Unit tests.
-- [ ] I2 Adapter: `PublicacionesPort` + HTTP adapter: session cookie from the start page, department `data-id` read dynamically, search and detail parsing, 60 s timeout, one retry on 5xx/timeout, stop on 403/429/captcha, at least 2 s between portal requests (process-wide queue), never fetch `/c/document_library/`. Tests with recorded fixtures (trimmed HTML, no party data).
-- [ ] I3 Persistence: table `autos_publicados` keyed by actuación (confidence, PDF link, file name, estado link, estado number, publication date, searched at, attempts) + migration + repository. Resolved results (`exacto`, `del_dia`) are never searched again; `estado` and `sin_resultado` may be retried after 3 days, at most 5 attempts.
-- [ ] I4 Use case + endpoint: `GET /api/procesos/:id/actuaciones/:actuacionId/auto` returns the stored result or resolves it on demand (only for providencias). Session required. Response `{ confianza, urlPdf, nombreArchivo, urlEstado, numeroEstado, fechaPublicacion }`.
-- [ ] I5 Web: "Ver auto" on providencias in the detalle; shows the result with a confidence label ("PDF exacto", "PDF del día, revisar", "Ver estado", "No encontrado"); opens links in a new tab; loading and error states.
-- [ ] I6 Docs: README and CLAUDE.md (source, conditions, limits, robots.txt rule), feature doc progress.
+- [x] I1 Domain: matcher rules (skip date-only names; a `<year><consecutivo>`; b year+consecutivo with separators; c combined estado on the fijación date; else estado link), confidence levels `exacto` / `del_dia` / `estado` / `sin_resultado`, business-day search window (auto date to fijación + 2 business days, Colombian holidays not required in v1), estado title date parsing (both title formats). Unit tests.
+- [x] I2 Adapter: `PublicacionesPort` + HTTP adapter: session cookie from the start page, department `data-id` read dynamically, search and detail parsing, 60 s timeout, one retry on 5xx/timeout, stop on 403/429/captcha, at least 2 s between portal requests (process-wide queue), never fetch `/c/document_library/`. Tests with recorded fixtures (trimmed HTML, no party data).
+- [x] I3 Persistence: table `autos_publicados` keyed by actuación (confidence, PDF link, file name, estado link, estado number, publication date, searched at, attempts) + migration + repository. Resolved results (`exacto`, `del_dia`) are never searched again; `estado` and `sin_resultado` may be retried after 3 days, at most 5 attempts.
+- [x] I4 Use case + endpoint: `GET /api/procesos/:id/actuaciones/:actuacionId/auto` returns the stored result or resolves it on demand (only for providencias). Session required. Response `{ confianza, urlPdf, nombreArchivo, urlEstado, numeroEstado, fechaPublicacion }`.
+- [x] I5 Web: "Ver auto" on providencias in the detalle; shows the result with a confidence label ("PDF exacto", "PDF del día, revisar", "Ver estado", "No encontrado"); opens links in a new tab; loading and error states.
+- [x] I6 Docs: README and CLAUDE.md (source, conditions, limits, robots.txt rule), feature doc progress.
+
+### Progress (phase I, single delegated writer, TDD off by user preference; tests written after each implementation)
+- 2026-10-13 I1 `1caf47d` feat(api): add the autos matcher, confidence levels and search window. Route: delegated writer.
+- 2026-10-13 I2 `84c7b35` feat(api): add the Publicaciones Procesales adapter with pacing and retries. Fixtures recorded with 6 portal requests (start page, 3 searches, 2 estado details), trimmed to rows, titles and file tables.
+- 2026-10-13 I3 `895c5f8` feat(api): persist autos results per actuacion (migration `AutosPublicados1791763200000`).
+- 2026-10-13 I4 `942f484` feat(api): add the auto endpoint for providencias.
+- 2026-10-13 I5 `4fc3891` feat(web): show "Ver auto" with its confidence level.
+- 2026-10-13 I6 docs: README, CLAUDE.md and this document (this commit).
+
+### Verification (2026-10-13)
+- API: lint, typecheck, build pass; unit 221 tests pass; e2e 128 tests pass (shared db-test on 5434).
+- Web: lint, typecheck, test (44 tests), build pass.
+- Live smoke: API from the worktree on :3100 against the dev DB, throwaway user, case A "Auto Concede" (2026-09-14) answered `exacto` `031202600100ConcedeApelación-NiegaSolicitud.pdf` with a `get_file` link in 6 s (3 portal requests); the second call came from the DB with 0 requests. Throwaway user and proceso deleted; the dev DB migration was reverted (table dropped, `migraciones` row removed).
+- Portal requests in phase I: 6 recording + 3 smoke = 9 of 30.
+
+### Deviations
+- Rule c (`del_dia`) also requires the publication type to be a notificación por estado and a file named like `AUTO*`/`PROVIDENC*` (the proof fell back to any non-estado file), so a `TRASLADOS<fecha>.pdf` is never offered.
+- At most 4 estado detail pages are read per search; concurrent requests for the same actuación share one search.
+- A portal failure answers 503 only when nothing is stored; otherwise the stored result is returned and no attempt is counted.
+
+### Open items
+- Colombian holidays in the business-day window.
+- Second-instance procesos: the despacho comes from the radicado, so a tribunal estado is not searched.
+- Merge with `fix/alineacion-frontend`: likely conflicts in `apps/web/src/features/detalle/actuaciones.tsx`.
+
+## Next step
+User review of the phase I commits; push and PR are the user's decision.

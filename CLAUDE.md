@@ -32,7 +32,7 @@ Health/diagnostics: `GET /api/salud` (CPNU reachability, database status, whethe
 `apps/api/src/<module>/{domain,application,infrastructure}` (hexagonal per module):
 
 - `domain/` — plain types and pure functions, no framework decorators. Property names are the public contract (Spanish) shared with the frontend.
-- `application/` — use cases (`ProcesosService`, `AgendaService`, `AuthService`, `RefreshProcesoService`, `DetectInstancesService`, `ReviewService`) and ports (`CpnuPort`, `ProcesoRepository`, `MetaRepository`) declared with Symbol tokens (`PROCESO_REPOSITORY`, `META_REPOSITORY`, `CPNU_PORT`, `AUTH_SECRET`).
+- `application/` — use cases (`ProcesosService`, `AgendaService`, `AuthService`, `RefreshProcesoService`, `DetectInstancesService`, `ReviewService`, `AutosService`) and ports (`CpnuPort`, `PublicacionesPort`, `ProcesoRepository`, `MetaRepository`, `AutoPublicadoRepository`) declared with Symbol tokens (`PROCESO_REPOSITORY`, `META_REPOSITORY`, `CPNU_PORT`, `PUBLICACIONES_PORT`, `AUTO_PUBLICADO_REPOSITORY`, `AUTH_SECRET`).
 - `infrastructure/` — HTTP controllers, TypeORM entities and repositories, the CPNU HTTP adapter, the cron scheduler. TypeORM types never leave infrastructure.
 
 Modules: `auth` (session cookie signed with `SESSION_SECRET` carrying the user id, login by correo, logout, `/yo`, login rate limit, global `SessionGuard`), `usuarios` (accounts table, self-registration `POST /api/registro`, `AdministracionUsuarios` used by the `users:*` CLI in `src/cli/`), `procesos` (routes, CPNU client, refresh, instance detection, review, persistence), `agenda` (`/api/agenda`, public `/api/agenda.ics`), `salud`, `config` (typed env validation), `database` (DataSource, migrations), `common` (`ApiError`, exception filter, JSON body middleware, `safeEqual`).
@@ -45,7 +45,8 @@ Key decisions:
 - Errors render as `{ error: string }` through `ApiExceptionFilter`; `ApiError(status, message)` carries the legacy Spanish messages.
 - Refresh writes only CPNU-owned data inside a transaction that locks the proceso row (`SELECT ... FOR UPDATE`), so office edits are never clobbered and deleted procesos are never resurrected.
 - Scheduled review: `@nestjs/schedule` cron (`REVISION_CRON`, default `0 11 * * *` UTC) with a re-entrancy guard; `/api/cron` (Bearer `CRON_SECRET`) runs the same review on demand. CPNU pacing: 1 s per proceso, 0.5 s per radicado.
-- Schema: `procesos`, `actuaciones` (with `no_vista`), `sujetos`, `notas`, `tareas`, `meta`. `synchronize` is off; schema changes go through migrations.
+- Autos: `GET /api/procesos/:id/actuaciones/:actuacionId/auto` (providencias only) scrapes the Publicaciones Procesales portal (`infrastructure/publicaciones/`): despacho = first 12 digits of the radicado, window = auto date to CPNU "Fijación estado" + 2 business days, matcher and confidence levels (`exacto`, `del_dia`, `estado`, `sin_resultado`) in `domain/autos.ts`. Links only: the server reads the start, search and estado detail pages and NEVER requests `/c/document_library/`, `/documents/` or `/dtd/` (robots.txt; `validarRutaPortal` enforces it). Process-wide queue with 2 s between requests, 60 s timeout, one retry on 5xx/timeout, 30 min stop on 403/429/captcha (`PortalBloqueadoError`, the endpoint answers 503 or the stored result). Results live in `autos_publicados` (FK to `procesos`, not `actuaciones`, because a refresh rewrites actuaciones); `exacto`/`del_dia` are final, `estado`/`sin_resultado` are retried after 3 days, at most 5 searches. Tests use trimmed HTML fixtures in `procesos/testing/fixtures/publicaciones/` and `FakePublicaciones` (the e2e app never hits the portal).
+- Schema: `procesos`, `actuaciones` (with `no_vista`), `sujetos`, `notas`, `tareas`, `meta`, `autos_publicados`. `synchronize` is off; schema changes go through migrations.
 
 ## Next.js web app (`apps/web`)
 
@@ -65,6 +66,7 @@ Operator commands: `npm run users:create|users:activate|users:deactivate|users:p
 
 ## Gotchas
 
+- Publicaciones Procesales is Liferay HTML, not an API: the portlet id `BIyXQFHVaYaq` and the markup can change, and file naming is each clerk's habit. Colombian holidays are not in the business-day window yet. Second-instance procesos search the despacho of the radicado, not the tribunal.
 - The CPNU API sometimes blocks non-Colombian IPs — connection errors may be geographic, not code bugs.
 - Cases marked private (`esPrivado`) in the Rama cannot be followed and are skipped.
 - The review job is long-running (about 1.5 s per proceso). A serverless host is not suitable; the hosting target is still open.
