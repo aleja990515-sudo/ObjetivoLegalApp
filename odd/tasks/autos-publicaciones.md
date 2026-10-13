@@ -58,3 +58,14 @@ Delegate phase R to one read-only research worker.
 - Proposed matcher, in order: skip date-only names (avoid false positives like `AUTOS20260611`); rule a `<year><consecutivo>`; rule b year and consecutivo with separators (`2025-01333`, `1333 de 2025`); rule c combined estado on the fijación date, labelled "PDF del día, revisar"; else link to the estado page.
 - Portal reliability: one 504 and two 60 s timeouts, all recovered with one retry.
 - Recommendation: GO for phase I with conditions: links only; confidence level visible in the UI; window to fijación + 2 business days; persist results per actuación and never re-search a resolved one; 60 s timeout, one retry on 5xx/timeout, stop on 403/429/captcha; tests from recorded fixtures of both naming styles; read the department data-id dynamically.
+
+## Phase I (user GO 2026-10-13)
+Conditions from phase P apply. TDD is off (user preference for this project); tests are still required, built from recorded and trimmed portal fixtures of both naming styles.
+
+### Tasks
+- [ ] I1 Domain: matcher rules (skip date-only names; a `<year><consecutivo>`; b year+consecutivo with separators; c combined estado on the fijación date; else estado link), confidence levels `exacto` / `del_dia` / `estado` / `sin_resultado`, business-day search window (auto date to fijación + 2 business days, Colombian holidays not required in v1), estado title date parsing (both title formats). Unit tests.
+- [ ] I2 Adapter: `PublicacionesPort` + HTTP adapter: session cookie from the start page, department `data-id` read dynamically, search and detail parsing, 60 s timeout, one retry on 5xx/timeout, stop on 403/429/captcha, at least 2 s between portal requests (process-wide queue), never fetch `/c/document_library/`. Tests with recorded fixtures (trimmed HTML, no party data).
+- [ ] I3 Persistence: table `autos_publicados` keyed by actuación (confidence, PDF link, file name, estado link, estado number, publication date, searched at, attempts) + migration + repository. Resolved results (`exacto`, `del_dia`) are never searched again; `estado` and `sin_resultado` may be retried after 3 days, at most 5 attempts.
+- [ ] I4 Use case + endpoint: `GET /api/procesos/:id/actuaciones/:actuacionId/auto` returns the stored result or resolves it on demand (only for providencias). Session required. Response `{ confianza, urlPdf, nombreArchivo, urlEstado, numeroEstado, fechaPublicacion }`.
+- [ ] I5 Web: "Ver auto" on providencias in the detalle; shows the result with a confidence label ("PDF exacto", "PDF del día, revisar", "Ver estado", "No encontrado"); opens links in a new tab; loading and error states.
+- [ ] I6 Docs: README and CLAUDE.md (source, conditions, limits, robots.txt rule), feature doc progress.
