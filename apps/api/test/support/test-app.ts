@@ -7,6 +7,8 @@ import { loadAppConfig, type AppConfig } from '../../src/config/app-config.js';
 import { APP_CONFIG } from '../../src/config/app-config.provider.js';
 import { configureApp } from '../../src/configure-app.js';
 import { CPNU_PORT, type CpnuPort } from '../../src/procesos/application/ports/cpnu.port.js';
+import { PUBLICACIONES_PORT, type PublicacionesPort } from '../../src/procesos/application/ports/publicaciones.port.js';
+import { FakePublicaciones } from '../../src/procesos/testing/fake-publicaciones.js';
 import { FakeCpnu } from '../../src/procesos/testing/fake-cpnu.js';
 
 export interface TestAppOptions {
@@ -14,6 +16,8 @@ export interface TestAppOptions {
   config?: Partial<AppConfig>;
   /** CPNU port used by the app. Default: an empty {@link FakeCpnu} (never the network). */
   cpnu?: CpnuPort;
+  /** Publicaciones Procesales port. Default: an empty {@link FakePublicaciones} (never the network). */
+  publicaciones?: PublicacionesPort;
   /** Delay function. Default: resolves immediately. */
   sleep?: Sleep;
   /** Extra provider overrides. */
@@ -31,6 +35,8 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<NestE
     .useValue(config)
     .overrideProvider(CPNU_PORT)
     .useValue(options.cpnu ?? new FakeCpnu())
+    .overrideProvider(PUBLICACIONES_PORT)
+    .useValue(options.publicaciones ?? new FakePublicaciones())
     .overrideProvider(SLEEP)
     .useValue(options.sleep ?? (async () => undefined))
     // The testing module compiles before the HTTP adapter exists, so serve-static
