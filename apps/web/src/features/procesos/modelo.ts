@@ -118,3 +118,17 @@ export interface DocumentoActuacion {
   nombre: string;
   url: string;
 }
+
+/** Nivel de certeza del PDF encontrado en Publicaciones Procesales. */
+export type ConfianzaAuto = 'exacto' | 'del_dia' | 'estado' | 'sin_resultado';
+
+/** Respuesta de `GET /api/procesos/:id/actuaciones/:actuacionId/auto`. */
+export interface AutoPublicado {
+  confianza: ConfianzaAuto;
+  urlPdf: string | null;
+  nombreArchivo: string | null;
+  urlEstado: string | null;
+  numeroEstado: string | null;
+  /** `YYYY-MM-DD`. */
+  fechaPublicacion: string | null;
+}

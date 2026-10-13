@@ -1,14 +1,15 @@
 'use client';
 
-import { CalendarPlus, Copy, DownloadSimple, EnvelopeSimple, FileText, Gavel, ShareNetwork, WhatsappLogo } from '@phosphor-icons/react';
+import { CalendarPlus, Copy, DownloadSimple, EnvelopeSimple, FilePdf, FileText, Gavel, ShareNetwork, WhatsappLogo } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { EstadoError, EstadoVacio } from '@/components/estado/estado';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { esProvidencia, fecha, fmtRadicado } from '@/features/procesos/formato';
-import type { Actuacion, DocumentoActuacion, ProcesoDetalle } from '@/features/procesos/modelo';
+import type { Actuacion, AutoPublicado, DocumentoActuacion, ProcesoDetalle } from '@/features/procesos/modelo';
 import { ApiError, apiFetch } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { ResultadoAutoPublicado } from './auto-publicado';
 import { textoCompartir } from './texto-compartir';
 import type { Borrador } from './tareas';
 
@@ -19,6 +20,8 @@ interface Props {
   onAgendar: (borrador: Omit<Borrador, 'clave'>) => void;
   onAviso: (texto: string) => void;
 }
+
+type AutoCargado = { estado: 'cargando' } | { estado: 'listo'; auto: AutoPublicado } | { estado: 'error'; mensaje: string };
 
 type DocumentosCargados = { estado: 'cargando' } | { estado: 'lista'; docs: DocumentoActuacion[] } | { estado: 'error'; mensaje: string };
 
@@ -40,6 +43,7 @@ const PESTANAS: { clave: Pestana; etiqueta: (p: ProcesoDetalle) => string; filtr
 export function Actuaciones({ proceso: p, onAgendar, onAviso }: Props) {
   const [pestana, setPestana] = useState<Pestana>('todas');
   const [documentos, setDocumentos] = useState<Record<string, DocumentosCargados>>({});
+  const [autos, setAutos] = useState<Record<string, AutoCargado>>({});
   const [compartiendo, setCompartiendo] = useState<string | null>(null);
   const nuevas = new Set(p.noVistasIds);
   const activa = PESTANAS.find((t) => t.clave === pestana) ?? PESTANAS[0];
@@ -54,6 +58,18 @@ export function Actuaciones({ proceso: p, onAgendar, onAviso }: Props) {
     } catch (fallo) {
       const mensaje = fallo instanceof ApiError ? fallo.message : 'No se pudieron cargar los documentos.';
       setDocumentos((previo) => ({ ...previo, [clave]: { estado: 'error', mensaje } }));
+    }
+  }
+
+  async function verAuto(actuacion: Actuacion) {
+    const clave = String(actuacion.id);
+    setAutos((previo) => ({ ...previo, [clave]: { estado: 'cargando' } }));
+    try {
+      const auto = await apiFetch<AutoPublicado>(`/procesos/${encodeURIComponent(p.idProceso)}/actuaciones/${actuacion.id}/auto`);
+      setAutos((previo) => ({ ...previo, [clave]: { estado: 'listo', auto } }));
+    } catch (fallo) {
+      const mensaje = fallo instanceof ApiError ? fallo.message : 'No se pudo buscar el auto.';
+      setAutos((previo) => ({ ...previo, [clave]: { estado: 'error', mensaje } }));
     }
   }
 
@@ -107,6 +123,7 @@ export function Actuaciones({ proceso: p, onAgendar, onAviso }: Props) {
           {lista.map((a) => {
             const esNueva = nuevas.has(a.id);
             const docs = documentos[String(a.id)];
+            const auto = autos[String(a.id)];
             const termino = a.fechaInicial ? `Término: ${fecha(a.fechaInicial)} a ${fecha(a.fechaFinal)}` : null;
             const providencia = esProvidencia(a.actuacion);
             return (
@@ -141,6 +158,18 @@ export function Actuaciones({ proceso: p, onAgendar, onAviso }: Props) {
                     >
                       <FileText aria-hidden="true" />
                       {docs?.estado === 'cargando' ? 'Cargando…' : 'Ver documentos'}
+                    </Button>
+                  )}
+                  {providencia && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => verAuto(a)}
+                      disabled={auto?.estado === 'cargando' || auto?.estado === 'listo'}
+                      aria-busy={auto?.estado === 'cargando'}
+                    >
+                      <FilePdf aria-hidden="true" />
+                      {auto?.estado === 'cargando' ? 'Buscando auto…' : 'Ver auto'}
                     </Button>
                   )}
                   <Button
@@ -193,6 +222,8 @@ export function Actuaciones({ proceso: p, onAgendar, onAviso }: Props) {
                   </div>
                 )}
 
+                {auto?.estado === 'error' && <EstadoError mensaje={auto.mensaje} />}
+                {auto?.estado === 'listo' && <ResultadoAutoPublicado auto={auto.auto} />}
                 {docs?.estado === 'error' && <EstadoError mensaje={docs.mensaje} />}
                 {docs?.estado === 'lista' && <Documentos docs={docs.docs} />}
               </li>
