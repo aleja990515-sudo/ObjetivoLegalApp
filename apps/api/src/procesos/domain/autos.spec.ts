@@ -1,5 +1,6 @@
 import { actuacion } from '../testing/proceso.fixtures.js';
 import {
+  debeBuscar,
   esFijacionEstado,
   esNombreSoloFecha,
   esProvidencia,
@@ -221,5 +222,29 @@ describe('resultadoEstado', () => {
       numeroEstado: '132',
       fechaPublicacion: '2026-09-15',
     });
+  });
+});
+
+describe('debeBuscar', () => {
+  const ahora = Temporal.Instant.from('2026-10-13T12:00:00.000Z');
+  const hace = (horas: number) => ahora.subtract({ hours: horas }).toString();
+
+  it('searches an actuación never searched', () => {
+    expect(debeBuscar(null, ahora)).toBe(true);
+  });
+
+  it('never searches a resolved result again', () => {
+    expect(debeBuscar({ confianza: 'exacto', buscadoEn: hace(24 * 30), intentos: 1 }, ahora)).toBe(false);
+    expect(debeBuscar({ confianza: 'del_dia', buscadoEn: hace(24 * 30), intentos: 1 }, ahora)).toBe(false);
+  });
+
+  it('retries estado and sin_resultado after 3 days', () => {
+    expect(debeBuscar({ confianza: 'estado', buscadoEn: hace(72 - 1), intentos: 1 }, ahora)).toBe(false);
+    expect(debeBuscar({ confianza: 'estado', buscadoEn: hace(72), intentos: 1 }, ahora)).toBe(true);
+    expect(debeBuscar({ confianza: 'sin_resultado', buscadoEn: hace(72), intentos: 4 }, ahora)).toBe(true);
+  });
+
+  it('stops after 5 searches', () => {
+    expect(debeBuscar({ confianza: 'sin_resultado', buscadoEn: hace(24 * 30), intentos: 5 }, ahora)).toBe(false);
   });
 });

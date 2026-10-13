@@ -214,6 +214,27 @@ export function evaluarEstado(
   return autos ? { confianza: 'del_dia', urlPdf: autos.url, nombreArchivo: autos.nombre, ...datosEstado(estado) } : null;
 }
 
+/** Days to wait before searching again an `estado` or `sin_resultado` result. */
+export const DIAS_ENTRE_REINTENTOS = 3;
+/** Searches allowed per actuación, the first one included. */
+export const MAX_INTENTOS = 5;
+
+/**
+ * Whether an actuación must be searched (again): never searched, or an
+ * unresolved result (`estado`, `sin_resultado`) at least 3 days old with fewer
+ * than 5 searches. `exacto` and `del_dia` are final.
+ */
+export function debeBuscar(
+  guardado: { confianza: Confianza; buscadoEn: string; intentos: number } | null,
+  ahora: Temporal.Instant,
+): boolean {
+  if (!guardado) return true;
+  if (guardado.confianza === 'exacto' || guardado.confianza === 'del_dia') return false;
+  if (guardado.intentos >= MAX_INTENTOS) return false;
+  const espera = Temporal.Duration.from({ hours: DIAS_ENTRE_REINTENTOS * 24 });
+  return Temporal.Instant.compare(Temporal.Instant.from(guardado.buscadoEn).add(espera), ahora) <= 0;
+}
+
 /** Fallback when no PDF was identified: link to the estado page. */
 export function resultadoEstado(estado: EstadoPublicado): ResultadoAuto {
   return { confianza: 'estado', urlPdf: null, nombreArchivo: null, ...datosEstado(estado) };
