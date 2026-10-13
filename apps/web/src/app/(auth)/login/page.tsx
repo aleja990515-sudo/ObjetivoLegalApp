@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Marca } from '@/components/marca/marca';
+import { CLASE_TITULO } from '@/components/page-header/page-header';
 import { Card } from '@/components/ui/card';
 import { LoginForm } from '@/features/login/login-form';
 
@@ -12,10 +14,9 @@ export default function LoginPage() {
     <main className="grid min-h-dvh place-items-center p-4">
       <Card className="w-full max-w-[400px] gap-5 px-7 py-7 shadow-[var(--shadow)]" aria-labelledby="titulo-login">
         <div className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
-          <img src="/icon.svg" alt="" width={28} height={28} />
-          <span>Mis Procesos</span>
+          <Marca size={28} labelClassName="" />
         </div>
-        <h1 id="titulo-login" className="m-0 text-xl font-semibold tracking-tight">
+        <h1 id="titulo-login" className={CLASE_TITULO}>
           Iniciar sesión
         </h1>
         <LoginForm />

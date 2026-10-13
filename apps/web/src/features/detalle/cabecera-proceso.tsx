@@ -1,10 +1,10 @@
 'use client';
 
-import { ArrowLeft, ArrowSquareOut, ArrowsClockwise, Check, PencilSimple, Trash } from '@phosphor-icons/react';
-import Link from 'next/link';
+import { ArrowSquareOut, ArrowsClockwise, Check, PencilSimple, Trash } from '@phosphor-icons/react';
 import { useRouter } from 'next/navigation';
 import { useId, useState, type FormEvent } from 'react';
 import { ConfirmarDialog } from '@/components/dialogo/confirmar-dialog';
+import { CLASE_TITULO } from '@/components/page-header/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import { fecha, fechaHora, fmtRadicado } from '@/features/procesos/formato';
 import type { ProcesoDetalle, ProcesoResumen } from '@/features/procesos/modelo';
 import { apiFetch } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { EnlaceVolver } from './enlace-volver';
 import type { Ejecutar } from './tipos';
 
 interface Props {
@@ -42,9 +43,9 @@ export function CabeceraProceso({ proceso: p, ocupado, ejecutar }: Props) {
   const dato = (etiqueta: string, valor: unknown) => {
     if (valor === null || valor === undefined || valor === '') return null;
     return (
-      <div className="grid gap-0.5">
+      <div className="grid min-w-0 gap-0.5">
         <dt className="text-xs text-muted-foreground">{etiqueta}</dt>
-        <dd className="m-0 text-sm">{String(valor)}</dd>
+        <dd className="m-0 break-words text-sm">{String(valor)}</dd>
       </div>
     );
   };
@@ -101,14 +102,11 @@ export function CabeceraProceso({ proceso: p, ocupado, ejecutar }: Props) {
 
   return (
     <section aria-labelledby="titulo-proceso" className="grid gap-5">
-      <Link href="/" className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground no-underline hover:text-foreground">
-        <ArrowLeft aria-hidden="true" className="size-4" />
-        Volver a procesos
-      </Link>
+      <EnlaceVolver />
 
       <div className="grid gap-2">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <h1 id="titulo-proceso" className="m-0 text-xl font-semibold tracking-tight">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 id="titulo-proceso" className={CLASE_TITULO}>
             {titulo}
           </h1>
           <div className="flex flex-wrap gap-1.5">
@@ -123,27 +121,27 @@ export function CabeceraProceso({ proceso: p, ocupado, ejecutar }: Props) {
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="Acciones del proceso">
         {pendiente && (
-          <Button onClick={marcarVisto} disabled={ocupado}>
-            <Check aria-hidden="true" className="size-4" />
+          <Button onClick={marcarVisto} disabled={ocupado} className="min-h-11 min-[640px]:min-h-9">
+            <Check aria-hidden="true" weight="regular" className="size-4" />
             Marcar como revisado
           </Button>
         )}
-        <Button variant="outline" onClick={actualizar} disabled={ocupado}>
-          <ArrowsClockwise aria-hidden="true" className="size-4" />
+        <Button variant="outline" onClick={actualizar} disabled={ocupado} className="min-h-11 min-[640px]:min-h-9">
+          <ArrowsClockwise aria-hidden="true" weight="regular" className="size-4" />
           Actualizar
         </Button>
-        <Button variant="outline" onClick={() => setRenombrando((v) => !v)} aria-expanded={renombrando}>
-          <PencilSimple aria-hidden="true" className="size-4" />
+        <Button variant="outline" onClick={() => setRenombrando((v) => !v)} aria-expanded={renombrando} className="min-h-11 min-[640px]:min-h-9">
+          <PencilSimple aria-hidden="true" weight="regular" className="size-4" />
           Renombrar
         </Button>
-        <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setQuitando(true)} disabled={ocupado}>
-          <Trash aria-hidden="true" className="size-4" />
+        <Button variant="destructive" onClick={() => setQuitando(true)} disabled={ocupado} className="min-h-11 min-[640px]:min-h-9">
+          <Trash aria-hidden="true" weight="regular" className="size-4" />
           Quitar de la lista
         </Button>
       </div>
 
       {renombrando && (
-        <form onSubmit={guardarAlias} className="grid gap-3 rounded-lg border border-line bg-card p-4 sm:max-w-md">
+        <form onSubmit={guardarAlias} className="grid max-w-md gap-3 rounded-lg border border-line bg-card p-4">
           <div className="grid gap-1.5">
             <Label htmlFor={idAlias}>Nombre interno del proceso</Label>
             <Input id={idAlias} value={alias} maxLength={120} onChange={(e) => setAlias(e.target.value)} />
@@ -159,7 +157,7 @@ export function CabeceraProceso({ proceso: p, ocupado, ejecutar }: Props) {
         </form>
       )}
 
-      <dl className={cn('m-0 grid grid-cols-1 gap-x-6 gap-y-3 rounded-lg border border-line bg-card p-4 sm:grid-cols-2 lg:grid-cols-3')}>
+      <dl className={cn('m-0 grid grid-cols-1 gap-x-6 gap-y-3 rounded-lg border border-line bg-card p-4 min-[640px]:grid-cols-2 min-[960px]:grid-cols-3')}>
         {dato('Despacho', d.despacho)}
         {dato('Ponente', d.ponente)}
         {dato('Clase', d.claseProceso)}
@@ -177,11 +175,14 @@ export function CabeceraProceso({ proceso: p, ocupado, ejecutar }: Props) {
       <p className="m-0 text-sm">
         <a href={URL_CONSULTA_OFICIAL} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ variant: 'link', size: 'sm' }), 'h-auto p-0')}>
           Abrir la consulta oficial de la Rama Judicial
-          <ArrowSquareOut aria-hidden="true" className="size-3.5" />
+          <ArrowSquareOut aria-hidden="true" weight="regular" className="size-3.5" />
         </a>
       </p>
 
-      <form onSubmit={guardarGestion} className="grid gap-3 rounded-lg border border-line bg-card p-4 sm:grid-cols-2">
+      {/* `items-start` es obligatorio: la columna de Etiquetas tiene una línea de ayuda extra, así que
+          con el `stretch` por defecto ambas celdas se igualan a la más alta y el grid interno reparte
+          el sobrante entre sus filas. Eso deformaba el input de Responsable y desalineaba los labels. */}
+      <form onSubmit={guardarGestion} className="grid items-start gap-3 rounded-lg border border-line bg-card p-4 min-[640px]:grid-cols-2">
         <div className="grid gap-1.5">
           <Label htmlFor={idResponsable}>Responsable</Label>
           <Input id={idResponsable} value={responsable} maxLength={60} onChange={(e) => setResponsable(e.target.value)} />
@@ -191,8 +192,8 @@ export function CabeceraProceso({ proceso: p, ocupado, ejecutar }: Props) {
           <Input id={idEtiquetas} value={etiquetas} maxLength={200} onChange={(e) => setEtiquetas(e.target.value)} />
           <p className="m-0 text-xs text-muted-foreground">Separadas por coma, por ejemplo: urgente, cliente X, laboral.</p>
         </div>
-        <div className="sm:col-span-2">
-          <Button type="submit" variant="outline" disabled={ocupado}>
+        <div className="min-[640px]:col-span-2">
+          <Button type="submit" variant="outline" disabled={ocupado} className="min-h-11 min-[640px]:min-h-9">
             Guardar gestión
           </Button>
         </div>

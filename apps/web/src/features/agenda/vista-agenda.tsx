@@ -3,8 +3,12 @@
 import { CalendarCheck, CalendarPlus, Copy } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useEffect, useId, useMemo, useState } from 'react';
+import { Casilla } from '@/components/casilla/casilla';
 import { EstadoError, EstadoVacio } from '@/components/estado/estado';
 import { PageHeader } from '@/components/page-header/page-header';
+import { Tarjeta } from '@/components/tarjeta/tarjeta';
+import { TituloSeccion } from '@/components/titulo-seccion/titulo';
+import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -79,17 +83,20 @@ export function VistaAgenda() {
       {datos ? (
         <Suscripcion ics={datos.ics} onAviso={setAviso} />
       ) : (
-        <Skeleton aria-hidden="true" className="h-24 w-full" />
+        // Misma superficie que la tarjeta de suscripcion: si no, emerge sobre otro fondo al cargar.
+        <Tarjeta className="grid gap-3" aria-hidden="true">
+          <Skeleton className="h-6 w-1/2" />
+          <Skeleton className="h-4 w-3/4" />
+        </Tarjeta>
       )}
 
-      <div className="mt-8 grid gap-4">
-        <div className="flex items-center gap-2">
-          <input
+      {/* 32px entre grupos frente a 8px entre tarjetas: el limite de grupo se ve de un vistazo. */}
+      <div className="mt-8 grid gap-8">
+        <div className="flex min-h-11 items-center gap-2 min-[640px]:min-h-9">
+          <Casilla
             id={idVerHechas}
-            type="checkbox"
             checked={verHechas}
             onChange={(e) => setVerHechas(e.target.checked)}
-            className="size-4 accent-primary"
           />
           <Label htmlFor={idVerHechas}>Ver realizadas</Label>
         </div>
@@ -102,11 +109,11 @@ export function VistaAgenda() {
 
         {!datos && <SkeletonAgenda />}
         {datos && grupos.length === 0 && (
-          <div className="rounded-lg border border-line bg-card">
+          <Tarjeta variante="vacio">
             <EstadoVacio icono={CalendarCheck} titulo="No hay actividades pendientes">
               Abre un proceso y usa Agendar actividad o término, o el botón Agendar de una actuación.
             </EstadoVacio>
-          </div>
+          </Tarjeta>
         )}
         {datos &&
           grupos.map((grupo) => (
@@ -137,29 +144,37 @@ function ItemAgenda({
 }) {
   const vencida = !t.hecha && t.fecha < hoy;
   return (
-    <li className={cn('flex items-start gap-3 rounded-lg border border-line bg-card p-3.5', t.hecha && 'opacity-70')}>
-      <input
-        type="checkbox"
-        aria-label={`Marcar como realizada: ${t.titulo}`}
-        checked={t.hecha}
-        onChange={(e) => onAlternar(t, e.target.checked)}
-        className="mt-1 size-4 shrink-0 accent-primary"
-      />
-      <div className="grid min-w-0 flex-1 gap-1">
-        <p className="m-0 text-xs text-muted-foreground tabular-nums">
-          {fechaLarga(t.fecha)}
-          {t.hora ? ` · ${t.hora}` : ''}
-          {vencida && <span className="ml-2 font-medium text-destructive">Vencida</span>}
-        </p>
-        <p className={cn('m-0 text-sm font-medium', t.hecha && 'line-through')}>{t.titulo}</p>
-        <Link href={`/procesos/${t.idProceso}`} className="w-fit text-xs text-primary underline-offset-4 hover:underline">
-          {t.alias || t.despacho || 'Proceso'} · {fmtRadicado(t.radicado)}
-        </Link>
-        <p className="m-0 text-xs text-muted-foreground">
-          {t.responsable || 'Sin responsable'}
-          {t.hecha && t.hechaPor ? ` · realizada por ${t.hechaPor}` : ''}
-        </p>
-      </div>
+    <li className={cn('flex items-start gap-3 rounded-lg border border-line bg-card p-4', t.hecha && 'opacity-70')}>
+      {/* La fila entera es etiqueta implicita de la casilla: tocarla la alterna.
+          El enlace al proceso sigue siendo interactivo propio: su pulsacion no la alterna. */}
+      <label className="flex min-h-11 min-w-0 flex-1 items-start gap-3 min-[640px]:min-h-9">
+        <Casilla
+          className="mt-1"
+          aria-label={`Marcar como realizada: ${t.titulo}`}
+          checked={t.hecha}
+          onChange={(e) => onAlternar(t, e.target.checked)}
+        />
+        <div className="grid min-w-0 flex-1 gap-1">
+          <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <span className="tabular-nums">
+              {fechaLarga(t.fecha)}
+              {t.hora ? ` · ${t.hora}` : ''}
+            </span>
+            {vencida && <Badge variant="destructive">Vencida</Badge>}
+          </p>
+          <p className={cn('m-0 text-sm font-medium', t.hecha && 'line-through')}>{t.titulo}</p>
+          <Link
+            href={`/procesos/${t.idProceso}`}
+            className="break-words text-xs text-primary tabular-nums underline-offset-4 hover:underline"
+          >
+            {t.alias || t.despacho || 'Proceso'} · {fmtRadicado(t.radicado)}
+          </Link>
+          <p className="m-0 text-xs text-muted-foreground">
+            {t.responsable || 'Sin responsable'}
+            {t.hecha && t.hechaPor ? ` · realizada por ${t.hechaPor}` : ''}
+          </p>
+        </div>
+      </label>
     </li>
   );
 }
@@ -178,39 +193,37 @@ function Suscripcion({ ics, onAviso }: { ics: string; onAviso: (texto: string) =
   }
 
   return (
-    <section aria-labelledby="titulo-suscripcion" className="grid gap-3 rounded-lg border border-line bg-card p-4">
-      <h2 id="titulo-suscripcion" className="m-0 text-base font-semibold">
-        Llevar la agenda a tu calendario
-      </h2>
+    <Tarjeta className="grid gap-3">
+      <TituloSeccion id="titulo-suscripcion" titulo="Llevar la agenda a tu calendario" />
       <p className="m-0 text-sm text-muted-foreground">
         Suscríbete una vez y las actividades se actualizan solas en tu calendario.
       </p>
       <div className="flex flex-wrap gap-2">
-        <a className={buttonVariants({ variant: 'outline' })} href={google} target="_blank" rel="noopener noreferrer">
-          <CalendarPlus aria-hidden="true" />
+        <a className={cn(buttonVariants({ variant: 'outline' }), 'min-h-11 min-[640px]:min-h-9')} href={google} target="_blank" rel="noopener noreferrer">
+          <CalendarPlus aria-hidden="true" weight="regular" />
           Agregar a Google Calendar
         </a>
-        <a className={buttonVariants({ variant: 'outline' })} href={webcal}>
-          <CalendarPlus aria-hidden="true" />
+        <a className={cn(buttonVariants({ variant: 'outline' }), 'min-h-11 min-[640px]:min-h-9')} href={webcal}>
+          <CalendarPlus aria-hidden="true" weight="regular" />
           Agregar a Outlook / iPhone
         </a>
-        <Button variant="outline" onClick={copiar}>
-          <Copy aria-hidden="true" />
+        <Button variant="outline" onClick={copiar} className="min-h-11 min-[640px]:min-h-9">
+          <Copy aria-hidden="true" weight="regular" />
           Copiar enlace
         </Button>
       </div>
-    </section>
+    </Tarjeta>
   );
 }
 
 function SkeletonAgenda() {
   return (
-    <div role="status" aria-live="polite" className="grid gap-2 rounded-lg border border-line bg-card p-4">
+    <Tarjeta className="grid gap-2" role="status" aria-live="polite">
       <span className="sr-only">Cargando agenda…</span>
       {[0, 1, 2].map((i) => (
         <Skeleton key={i} aria-hidden="true" className="h-12 w-full" />
       ))}
-    </div>
+    </Tarjeta>
   );
 }
 

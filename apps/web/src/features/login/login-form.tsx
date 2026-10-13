@@ -41,7 +41,6 @@ export function LoginForm() {
           required
           value={correo}
           onChange={(e) => setCorreo(e.target.value)}
-          className="min-h-11 rounded-md border-line-input bg-surface px-3 text-base md:text-sm"
         />
       </div>
       <div className="grid gap-1.5">
@@ -54,13 +53,12 @@ export function LoginForm() {
           required
           value={clave}
           onChange={(e) => setClave(e.target.value)}
-          className="min-h-11 rounded-md border-line-input bg-surface px-3 text-base md:text-sm"
         />
       </div>
       <p role="alert" className="m-0 min-h-5 text-sm text-destructive">
         {error}
       </p>
-      <Button type="submit" className="min-h-11 w-full" disabled={enviando}>
+      <Button type="submit" className="min-h-11 w-full min-[640px]:min-h-9" disabled={enviando}>
         Entrar
       </Button>
     </form>

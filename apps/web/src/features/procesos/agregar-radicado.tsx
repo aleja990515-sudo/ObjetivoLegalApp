@@ -57,7 +57,11 @@ export function AgregarRadicado({ onAgregado }: Props) {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="grid gap-3 rounded-lg border border-line bg-card p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+    <form
+      onSubmit={onSubmit}
+      noValidate
+      className="grid gap-3 rounded-lg border border-line bg-card p-4 min-[640px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] min-[640px]:items-end"
+    >
       <div className="grid gap-1.5">
         <Label htmlFor={idRadicado}>Radicado</Label>
         <Input
@@ -69,24 +73,25 @@ export function AgregarRadicado({ onAgregado }: Props) {
           aria-describedby={idAyuda}
           aria-invalid={error ? true : undefined}
         />
-        <p id={idAyuda} className="m-0 text-xs text-muted-foreground">
-          23 dígitos de la Rama Judicial.
-        </p>
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor={idAlias}>Alias (opcional)</Label>
         <Input id={idAlias} autoComplete="off" value={alias} onChange={(e) => setAlias(e.target.value)} />
       </div>
-      <Button type="submit" disabled={enviando} aria-busy={enviando} className="h-9 w-full sm:w-auto">
+      <Button type="submit" disabled={enviando} aria-busy={enviando} className="w-full min-h-11 min-[640px]:min-h-9 min-[640px]:w-auto">
         {enviando ? 'Consultando…' : 'Agregar'}
       </Button>
+      {/* La ayuda ocupa su propia fila: si vive bajo el campo, desalinea la fila del grid. */}
+      <p id={idAyuda} className="m-0 min-[640px]:col-span-3 text-xs text-muted-foreground">
+        23 dígitos de la Rama Judicial.
+      </p>
       {error && (
-        <div className="sm:col-span-3">
+        <div className="min-[640px]:col-span-3">
           <EstadoError mensaje={error} />
         </div>
       )}
       {aviso && (
-        <p role="status" className="m-0 text-sm text-accent-foreground sm:col-span-3">
+        <p role="status" className="m-0 min-[640px]:col-span-3 text-sm text-accent-foreground">
           {aviso}
         </p>
       )}

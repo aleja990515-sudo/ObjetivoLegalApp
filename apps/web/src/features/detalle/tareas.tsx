@@ -2,8 +2,11 @@
 
 import { CalendarBlank, ListChecks, Plus, Trash, User, X } from '@phosphor-icons/react';
 import { useEffect, useId, useState, type FormEvent } from 'react';
+import { Casilla } from '@/components/casilla/casilla';
 import { ConfirmarDialog } from '@/components/dialogo/confirmar-dialog';
 import { EstadoVacio } from '@/components/estado/estado';
+import { Tarjeta } from '@/components/tarjeta/tarjeta';
+import { TituloSeccion } from '@/components/titulo-seccion/titulo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -90,14 +93,16 @@ export function Tareas({ proceso: p, hoy, ocupado, ejecutar, borrador }: Props) 
   }
 
   return (
-    <section aria-labelledby="titulo-tareas" className="grid gap-3">
+    // El ancla del scroll lleva scroll-mt para no quedar bajo la cabecera pegajosa de movil.
+    <section id="seccion-tareas" aria-labelledby="titulo-tareas" className="grid scroll-mt-[var(--top-h)] gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="titulo-tareas" className="m-0 flex items-center gap-2 text-base font-semibold">
-          <ListChecks aria-hidden="true" className="size-5 text-muted-foreground" />
-          Agenda del proceso
-        </h2>
-        <Button variant="outline" size="sm" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)}>
-          {abierto ? <X aria-hidden="true" /> : <Plus aria-hidden="true" />}
+        <TituloSeccion id="titulo-tareas" titulo="Agenda del proceso" icono={ListChecks} />
+        <Button variant="outline" size="sm" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)} className="min-h-11 min-[640px]:min-h-9">
+          {abierto ? (
+            <X aria-hidden="true" weight="regular" />
+          ) : (
+            <Plus aria-hidden="true" weight="regular" />
+          )}
           {abierto ? 'Cerrar' : 'Agendar actividad o término'}
         </Button>
       </div>
@@ -106,9 +111,9 @@ export function Tareas({ proceso: p, hoy, ocupado, ejecutar, borrador }: Props) 
         <form
           key={borrador?.clave ?? 'manual'}
           onSubmit={agregar}
-          className="grid gap-3 rounded-lg border border-line bg-card p-4 sm:grid-cols-2"
+          className="grid gap-3 rounded-lg border border-line bg-card p-4 min-[640px]:grid-cols-2"
         >
-          <div className="grid gap-1.5 sm:col-span-2">
+          <div className="grid gap-1.5 min-[640px]:col-span-2">
             <Label htmlFor={idTitulo}>Actividad</Label>
             <Input id={idTitulo} required maxLength={200} value={titulo} onChange={(e) => setTitulo(e.target.value)} />
           </div>
@@ -125,15 +130,15 @@ export function Tareas({ proceso: p, hoy, ocupado, ejecutar, borrador }: Props) 
             <Input id={idResponsable} maxLength={60} value={responsable} onChange={(e) => setResponsable(e.target.value)} />
           </div>
           {idActuacion && (
-            <div className="flex items-center justify-between gap-2 rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground sm:col-span-2">
-              <span>Vinculada a una actuación del expediente.</span>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setIdActuacion(null)}>
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground min-[640px]:col-span-2">
+              <span className="min-w-0">Vinculada a una actuación del expediente.</span>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setIdActuacion(null)} className="min-h-11 min-[640px]:min-h-9">
                 Quitar vínculo
               </Button>
             </div>
           )}
-          <div className="sm:col-span-2">
-            <Button type="submit" disabled={ocupado}>
+          <div className="min-[640px]:col-span-2">
+            <Button type="submit" disabled={ocupado} className="min-h-11 min-[640px]:min-h-9">
               Guardar actividad
             </Button>
           </div>
@@ -141,11 +146,11 @@ export function Tareas({ proceso: p, hoy, ocupado, ejecutar, borrador }: Props) 
       )}
 
       {ordenadas.length === 0 ? (
-        <div className="rounded-lg border border-line bg-card">
+        <Tarjeta variante="vacio">
           <EstadoVacio icono={CalendarBlank} titulo="Sin actividades agendadas">
             Agrega términos y audiencias con el botón Agendar actividad o término.
           </EstadoVacio>
-        </div>
+        </Tarjeta>
       ) : (
         <ul aria-label="Actividades del proceso" className="m-0 grid list-none gap-2 p-0">
           {ordenadas.map((t) => {
@@ -155,48 +160,52 @@ export function Tareas({ proceso: p, hoy, ocupado, ejecutar, borrador }: Props) 
               <li
                 key={t.id}
                 className={cn(
-                  'flex items-start gap-3 rounded-lg border border-line bg-card p-3.5',
+                  'flex items-start gap-3 rounded-lg border border-line bg-card p-4',
                   t.hecha && 'opacity-70',
                 )}
               >
-                <input
-                  type="checkbox"
-                  aria-label={`Marcar como realizada: ${t.titulo}`}
-                  checked={t.hecha}
-                  disabled={ocupado}
-                  onChange={(e) => alternar(t, e.target.checked)}
-                  className="mt-1 size-4 shrink-0 accent-primary"
-                />
-                <div className="grid min-w-0 flex-1 gap-1">
-                  <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                    <span className="tabular-nums">
-                      {fechaLarga(t.fecha)}
-                      {t.hora ? ` · ${t.hora}` : ''}
-                    </span>
-                    {vencida && <Badge variant="destructive">Vencida</Badge>}
-                    {paraHoy && <Badge variant="secondary">Hoy</Badge>}
-                  </p>
-                  <p className={cn('m-0 text-sm font-medium', t.hecha && 'line-through')}>{t.titulo}</p>
-                  <p className="m-0 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    {t.responsable ? (
-                      <>
-                        <User aria-hidden="true" className="size-3.5" />
-                        {t.responsable}
-                      </>
-                    ) : (
-                      'Sin responsable'
-                    )}
-                    {t.hecha && t.hechaPor ? ` · realizada por ${t.hechaPor}` : ''}
-                  </p>
-                </div>
+                {/* La fila entera es etiqueta implicita de la casilla: tocarla la alterna.
+                    El boton de eliminar queda fuera porque es contenido interactivo propio. */}
+                <label className="flex min-h-11 min-w-0 flex-1 items-start gap-3 min-[640px]:min-h-9">
+                  <Casilla
+                    className="mt-1"
+                    aria-label={`Marcar como realizada: ${t.titulo}`}
+                    checked={t.hecha}
+                    disabled={ocupado}
+                    onChange={(e) => alternar(t, e.target.checked)}
+                  />
+                  <div className="grid min-w-0 flex-1 gap-1">
+                    <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <span className="tabular-nums">
+                        {fechaLarga(t.fecha)}
+                        {t.hora ? ` · ${t.hora}` : ''}
+                      </span>
+                      {vencida && <Badge variant="destructive">Vencida</Badge>}
+                      {paraHoy && <Badge variant="secondary">Hoy</Badge>}
+                    </p>
+                    <p className={cn('m-0 text-sm font-medium', t.hecha && 'line-through')}>{t.titulo}</p>
+                    <p className="m-0 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      {t.responsable ? (
+                        <>
+                          <User aria-hidden="true" weight="regular" className="size-3.5" />
+                          {t.responsable}
+                        </>
+                      ) : (
+                        'Sin responsable'
+                      )}
+                      {t.hecha && t.hechaPor ? ` · realizada por ${t.hechaPor}` : ''}
+                    </p>
+                  </div>
+                </label>
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="size-11 min-[640px]:size-9"
                   aria-label={`Eliminar actividad: ${t.titulo}`}
                   disabled={ocupado}
                   onClick={() => setParaEliminar(t)}
                 >
-                  <Trash aria-hidden="true" />
+                  <Trash aria-hidden="true" weight="regular" />
                 </Button>
               </li>
             );
