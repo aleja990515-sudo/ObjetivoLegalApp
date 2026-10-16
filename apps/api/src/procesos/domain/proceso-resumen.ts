@@ -2,6 +2,7 @@
 // `pendientes` and the sorting of `GET /procesos` and `GET /novedades`
 // (lib/app.js:212-309). Pure functions: the "today" date is an argument.
 
+import type { EstadoProceso } from './estado-proceso.repository.js';
 import type { Actuacion, Proceso, Sujeto, Tarea } from './proceso.js';
 
 /** Actuaciones that are the judge's decisions (autos, sentencias, fallos, providencias). */
@@ -15,10 +16,14 @@ export interface ProcesoResumen {
   despacho: string | null;
   claseProceso: unknown;
   sujetos: string | null;
+  /** True when the Rama reserved the case: it only has the radicado search data. */
+  esPrivado: boolean;
   ultimaActuacion: Actuacion | null;
   ultimoAuto: Actuacion | null;
   /** Number of unseen actuaciones. */
   noVistas: number;
+  /** Number of estados detected for this caso that the office has not read yet. */
+  estadosNoVistos: number;
   nuevaInstancia: boolean;
   proximaTarea: Tarea | null;
   tareasVencidas: number;
@@ -35,6 +40,8 @@ export type ProcesoDetalle = Omit<ProcesoResumen, 'sujetos'> & {
   sujetos: Sujeto[];
   actuaciones: Actuacion[];
   noVistasIds: number[];
+  /** Estados of the court in which the caso's radicado was published, newest first. */
+  estados: EstadoProceso[];
   notas: Proceso['notas'];
   tareas: Tarea[];
 };
@@ -48,7 +55,11 @@ export interface NovedadBase {
 }
 
 export type Novedad = NovedadBase &
-  ({ tipo: 'instancia'; fecha: string } | { tipo: 'actuacion'; fecha: string | null; actuacion: Actuacion });
+  (
+    | { tipo: 'instancia'; fecha: string }
+    | { tipo: 'actuacion'; fecha: string | null; actuacion: Actuacion }
+    | { tipo: 'estado'; fecha: string | null; estado: EstadoProceso }
+  );
 
 export function courtName(p: Proceso): string | null {
   return ((p.detalle.despacho as string | undefined) || p.despacho) ?? null;
@@ -61,7 +72,7 @@ export function pendientes(p: Proceso): Tarea[] {
     .sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')));
 }
 
-export function resumen(p: Proceso, hoy: string): ProcesoResumen {
+export function resumen(p: Proceso, hoy: string, estadosNoVistos = 0): ProcesoResumen {
   const pendientesDe = pendientes(p);
   return {
     idProceso: p.idProceso,
@@ -70,9 +81,11 @@ export function resumen(p: Proceso, hoy: string): ProcesoResumen {
     despacho: courtName(p),
     claseProceso: p.detalle.claseProceso,
     sujetos: p.sujetosTexto,
+    esPrivado: p.esPrivado,
     ultimaActuacion: p.actuaciones[0] ?? null,
     ultimoAuto: p.actuaciones.find((a) => ES_PROVIDENCIA.test(a.actuacion || '')) ?? null,
     noVistas: p.noVistas.length,
+    estadosNoVistos,
     nuevaInstancia: p.nuevaInstancia,
     proximaTarea: pendientesDe[0] ?? null,
     tareasVencidas: pendientesDe.filter((t) => t.fecha < hoy).length,
@@ -84,13 +97,15 @@ export function resumen(p: Proceso, hoy: string): ProcesoResumen {
   };
 }
 
-export function detalleCompleto(p: Proceso, hoy: string): ProcesoDetalle {
+export function detalleCompleto(p: Proceso, hoy: string, estados: EstadoProceso[] = []): ProcesoDetalle {
   return {
-    ...resumen(p, hoy),
+    // The count is derived from the rows of this same answer, so the two agree.
+    ...resumen(p, hoy, estados.filter((e) => !e.visto).length),
     detalle: p.detalle,
     sujetos: p.sujetos,
     actuaciones: p.actuaciones,
     noVistasIds: p.noVistas,
+    estados,
     notas: p.notas,
     tareas: p.tareas,
   };
@@ -104,11 +119,12 @@ export function compararFechaDesc(a: string | null | undefined, b: string | null
 }
 
 /**
- * List order: procesos with unseen actuaciones or new instances first (most
- * items first), then the most recent actuación, then the idProceso tie-break.
+ * List order: procesos with unseen actuaciones, new instances or unseen estado
+ * detections first (most items first), then the most recent actuación, then the
+ * idProceso tie-break.
  */
 export function compararProcesos(a: ProcesoResumen, b: ProcesoResumen): number {
-  const alertas = (p: ProcesoResumen) => p.noVistas + Number(p.nuevaInstancia);
+  const alertas = (p: ProcesoResumen) => p.noVistas + p.estadosNoVistos + Number(p.nuevaInstancia);
   return (
     alertas(b) - alertas(a) ||
     compararFechaDesc(a.ultimaActuacion?.fecha, b.ultimaActuacion?.fecha) ||
@@ -121,8 +137,19 @@ export function compararNovedades(a: { idProceso: string; fecha?: string | null 
   return compararFechaDesc(a.fecha, b.fecha) || a.idProceso.localeCompare(b.idProceso);
 }
 
-/** Unseen actuaciones and new instances of every proceso (`GET /novedades`). */
-export function novedades(procesos: Proceso[]): Novedad[] {
+/**
+ * Unseen actuaciones, new instances and unseen estado detections of every
+ * proceso (`GET /novedades`). A caso whose radicado was published in an estado
+ * is a novedad on its own, even when it has no actuaciones to show.
+ */
+export function novedades(procesos: Proceso[], detecciones: EstadoProceso[]): Novedad[] {
+  const porProceso = new Map<string, EstadoProceso[]>();
+  for (const deteccion of detecciones) {
+    const grupo = porProceso.get(deteccion.idProceso);
+    if (grupo) grupo.push(deteccion);
+    else porProceso.set(deteccion.idProceso, [deteccion]);
+  }
+
   const items: Novedad[] = [];
   for (const p of procesos) {
     const base: NovedadBase = { idProceso: p.idProceso, radicado: p.radicado, alias: p.alias, despacho: courtName(p) };
@@ -130,6 +157,9 @@ export function novedades(procesos: Proceso[]): Novedad[] {
     const noVistas = new Set(p.noVistas);
     for (const a of p.actuaciones) {
       if (noVistas.has(a.id)) items.push({ ...base, tipo: 'actuacion', fecha: a.fecha, actuacion: a });
+    }
+    for (const estado of porProceso.get(p.idProceso) ?? []) {
+      items.push({ ...base, tipo: 'estado', fecha: estado.fechaPublicacion, estado });
     }
   }
   return items.sort(compararNovedades);

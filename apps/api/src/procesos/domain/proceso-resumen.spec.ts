@@ -1,5 +1,13 @@
-import { actuacion, nota, proceso, tarea } from '../testing/proceso.fixtures.js';
-import { compararNovedades, compararProcesos, detalleCompleto, pendientes, resumen, type ProcesoResumen } from './proceso-resumen.js';
+import { actuacion, estadoProceso, nota, proceso, tarea } from '../testing/proceso.fixtures.js';
+import {
+  compararNovedades,
+  compararProcesos,
+  detalleCompleto,
+  novedades,
+  pendientes,
+  resumen,
+  type ProcesoResumen,
+} from './proceso-resumen.js';
 
 const HOY = '2026-03-10';
 
@@ -23,9 +31,11 @@ describe('proceso-resumen (legacy resumen/detalleCompleto)', () => {
       despacho: 'JUZGADO DETALLE',
       claseProceso: 'Ordinario',
       sujetos: 'Demandante: A | Demandado: B',
+      esPrivado: false,
       ultimaActuacion: actuacion(2, { actuacion: 'Auto admite demanda' }),
       ultimoAuto: actuacion(2, { actuacion: 'Auto admite demanda' }),
       noVistas: 1,
+      estadosNoVistos: 0,
       nuevaInstancia: true,
       proximaTarea: null,
       tareasVencidas: 0,
@@ -40,6 +50,40 @@ describe('proceso-resumen (legacy resumen/detalleCompleto)', () => {
   it('falls back to the search court name and ultimaActuacion null when there are no actuaciones', () => {
     const p = proceso('1', { detalle: {}, despacho: 'JUZGADO BÚSQUEDA' });
     expect(resumen(p, HOY)).toMatchObject({ despacho: 'JUZGADO BÚSQUEDA', ultimaActuacion: null, ultimoAuto: null });
+  });
+
+  it('summarizes an unhydrated private proceso without throwing', () => {
+    const p = proceso('7', { esPrivado: true, sujetosTexto: null, despacho: 'JUZGADO 003', detalle: {} });
+    expect(resumen(p, HOY)).toEqual({
+      idProceso: '7',
+      radicado: '11001310300120190012300',
+      alias: '',
+      despacho: 'JUZGADO 003',
+      claseProceso: undefined,
+      sujetos: null,
+      esPrivado: true,
+      ultimaActuacion: null,
+      ultimoAuto: null,
+      noVistas: 0,
+      estadosNoVistos: 0,
+      nuevaInstancia: false,
+      proximaTarea: null,
+      tareasVencidas: 0,
+      responsable: '',
+      etiquetas: [],
+      ultimaConsulta: null,
+      agregadoPor: 'Ana',
+      error: null,
+    });
+    expect(detalleCompleto(p, HOY)).toMatchObject({
+      detalle: {},
+      sujetos: [],
+      actuaciones: [],
+      noVistasIds: [],
+      estados: [],
+      notas: [],
+      tareas: [],
+    });
   });
 
   it('picks the next pending task (date then time) and counts overdue ones', () => {
@@ -103,6 +147,62 @@ describe('proceso-resumen (legacy resumen/detalleCompleto)', () => {
       const b = conProceso('b');
       const a = conProceso('a');
       expect([b, a].sort(compararProcesos).map((p) => p.idProceso)).toEqual(['a', 'b']);
+    });
+
+    it('treats an unseen estado detection as an alert', () => {
+      const sin = conProceso('sin');
+      const conDeteccion = { ...conProceso('det'), estadosNoVistos: 1 };
+      expect([sin, conDeteccion].sort(compararProcesos).map((p) => p.idProceso)).toEqual(['det', 'sin']);
+    });
+  });
+
+  it('counts the unseen estado detections in the summary, zero by default', () => {
+    const p = proceso('7', { esPrivado: true, sujetosTexto: null, actuaciones: [], noVistas: [] });
+    expect(resumen(p, HOY).estadosNoVistos).toBe(0);
+    expect(resumen(p, HOY, 2)).toMatchObject({ estadosNoVistos: 2, noVistas: 0 });
+
+    const detalle = detalleCompleto(p, HOY, [
+      estadoProceso({ idProceso: '7' }),
+      estadoProceso({ idProceso: '7', urlEstado: 'https://portal.test/?articleId=170', visto: true }),
+    ]);
+    expect(detalle).toMatchObject({ estadosNoVistos: 1, estados: [expect.anything(), expect.anything()] });
+  });
+
+  describe('novedades', () => {
+    it('lists an unseen estado detection of a proceso without actuaciones', () => {
+      const deteccion = estadoProceso({ idProceso: '7', fechaPublicacion: '2026-10-14' });
+      const items = novedades([proceso('7', { esPrivado: true })], [deteccion]);
+
+      expect(items).toEqual([
+        expect.objectContaining({
+          tipo: 'estado',
+          idProceso: '7',
+          fecha: '2026-10-14',
+          estado: expect.objectContaining({ numeroEstado: '174' }),
+        }),
+      ]);
+    });
+
+    it('mixes actuaciones, new instances and detections, newest first', () => {
+      const p = proceso('1', { actuaciones: [actuacion(1, { fecha: '2026-09-01T00:00:00' })], noVistas: [1] });
+      const items = novedades(
+        [p, proceso('2', { nuevaInstancia: true, agregado: '2026-08-01T00:00:00.000Z' })],
+        [
+          estadoProceso({ idProceso: '1', fechaPublicacion: '2026-10-14' }),
+          estadoProceso({ idProceso: '2', urlEstado: 'https://portal.test/?articleId=2', fechaPublicacion: null }),
+        ],
+      );
+
+      expect(items.map((i) => [i.idProceso, i.tipo, i.fecha])).toEqual([
+        ['1', 'estado', '2026-10-14'],
+        ['1', 'actuacion', '2026-09-01T00:00:00'],
+        ['2', 'instancia', '2026-08-01T00:00:00.000Z'],
+        ['2', 'estado', null],
+      ]);
+    });
+
+    it('ignores the detections of a proceso that is no longer followed', () => {
+      expect(novedades([], [estadoProceso({ idProceso: '7' })])).toEqual([]);
     });
   });
 

@@ -24,6 +24,7 @@ describe('TypeOrmProcesoRepository (Postgres)', () => {
 
   const full = proceso('101', {
     detalle: { despacho: 'JUZGADO 1', claseProceso: 'Verbal', nested: { a: [1, 2] } },
+    esPrivado: true,
     sujetos: [
       { tipo: 'Demandante', nombre: 'A' },
       { tipo: 'Demandado', nombre: 'B' },

@@ -1,4 +1,5 @@
 // Test fixtures for the procesos domain (used by unit and integration tests).
+import type { EstadoProceso } from '../domain/estado-proceso.repository.js';
 import type { Actuacion, Nota, Proceso, Tarea } from '../domain/proceso.js';
 
 export function actuacion(id: number, overrides: Partial<Actuacion> = {}): Actuacion {
@@ -36,12 +37,27 @@ export function tarea(id: string, overrides: Partial<Tarea> = {}): Tarea {
   };
 }
 
+/** One estado of a despacho in which a caso was found. */
+export function estadoProceso(overrides: Partial<EstadoProceso> = {}): EstadoProceso {
+  return {
+    idProceso: '1',
+    urlEstado: 'https://portal.test/web/publicaciones-procesales/inicio?articleId=174',
+    numeroEstado: '174',
+    fechaPublicacion: '2026-10-14',
+    radicadoEncontrado: '11001310300120190012300',
+    visto: false,
+    detectadoEn: '2026-10-15T12:00:00.000Z',
+    ...overrides,
+  };
+}
+
 export function proceso(idProceso: string, overrides: Partial<Proceso> = {}): Proceso {
   return {
     idProceso,
     radicado: '11001310300120190012300',
     despacho: 'JUZGADO 001 CIVIL DEL CIRCUITO',
     sujetosTexto: 'Demandante: A | Demandado: B',
+    esPrivado: false,
     detalle: {},
     sujetos: [],
     actuaciones: [],

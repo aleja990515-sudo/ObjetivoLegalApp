@@ -79,6 +79,12 @@ export interface Proceso extends ProcesoCpnuState, ProcesoOfficeState {
   despacho: string | null;
   /** Parties summary from the radicado search. */
   sujetosTexto: string | null;
+  /**
+   * True when the Rama reserved the case (`esPrivado` in the radicado search).
+   * CPNU hides its detail, parties and actuaciones, so only the search data is
+   * stored and the case is watched through the despacho's published estados.
+   */
+  esPrivado: boolean;
   agregadoPor: string;
   agregado: string;
 }

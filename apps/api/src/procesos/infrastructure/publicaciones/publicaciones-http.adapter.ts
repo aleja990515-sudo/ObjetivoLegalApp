@@ -19,6 +19,11 @@ export const PORTAL_PAUSA_REINTENTO_MS = 5_000;
 export const PORTAL_SESION_MS = 15 * 60_000;
 /** After a block (403, 429, captcha) no request is sent for this time. */
 export const PORTAL_ENFRIAMIENTO_MS = 30 * 60_000;
+/**
+ * Ceiling of one document download. A real `LISTADO` is ~36 KB; 8 MB only stops
+ * a runaway answer from filling memory.
+ */
+export const MAX_DESCARGA_BYTES = 8 * 1024 * 1024;
 const MAX_DETALLES_EN_CACHE = 200;
 const MAX_REDIRECCIONES = 2;
 
@@ -26,21 +31,34 @@ const PORTLET = 'co_com_avanti_efectosProcesales_PublicacionesEfectosProcesalesP
 const NS = `_${PORTLET}_`;
 const HEADERS = { Accept: 'text/html', 'User-Agent': 'Mozilla/5.0 SeguimientoProcesos' };
 const PAGINA_DE_BLOQUEO = /captcha|access denied|request rejected/i;
+/** An answer with one of these content types is not a document. */
+const TIPOS_NO_DOCUMENTO = /^(text\/|application\/(json|xhtml\+xml))/;
 
 /** robots.txt of the portal disallows these paths; PDFs live under the first one. */
 const RUTAS_PROHIBIDAS = [/^\/c\/document_library\//i, /^\/documents\//i, /^\/dtd\//i];
 
 /**
- * Guard of every request: only pages of the portal under
- * `/web/publicaciones-procesales/`, never a path robots.txt disallows.
+ * The only document this server fetches: the `LISTADO <n>.pdf` of an estado.
+ * Deliberate exception to the robots.txt rule (`Disallow: /c/document_library/`),
+ * authorised by the office, because the estados channel does not inherit the
+ * reservation of a private case and the listing is the only place that says
+ * whether the case was published. Every other path under `/c/document_library/`
+ * stays forbidden.
+ */
+const RUTA_LISTADO = '/c/document_library/get_file';
+
+/**
+ * Guard of every request: pages of the portal under `/web/publicaciones-procesales/`,
+ * plus the `LISTADO` document path, never another path robots.txt disallows.
  */
 export function validarRutaPortal(url: string): URL {
   const destino = new URL(url, PORTAL_ORIGIN);
   const ruta = decodeURIComponent(destino.pathname);
+  const listado = destino.pathname === RUTA_LISTADO && destino.searchParams.has('uuid');
   if (
     destino.origin !== PORTAL_ORIGIN ||
-    RUTAS_PROHIBIDAS.some((r) => r.test(ruta)) ||
-    !ruta.startsWith('/web/publicaciones-procesales/')
+    (!listado && RUTAS_PROHIBIDAS.some((r) => r.test(ruta))) ||
+    (!listado && !ruta.startsWith('/web/publicaciones-procesales/'))
   ) {
     throw new Error(`Ruta del portal no permitida: ${destino.origin}${destino.pathname}`);
   }
@@ -48,6 +66,15 @@ export function validarRutaPortal(url: string): URL {
 }
 
 class Reintentable extends Error {}
+
+/** One answer of the portal, still as bytes (an HTML page or a document). */
+interface RespuestaPortal {
+  status: number;
+  cuerpo: Buffer;
+  /** `Content-Type` without parameters and lowercased; null when the header is missing. */
+  tipo: string | null;
+  ubicacion: string | null;
+}
 
 export interface OpcionesPublicacionesHttp {
   fetch?: typeof fetch;
@@ -104,6 +131,27 @@ export class PublicacionesHttpAdapter implements PublicacionesPort {
     return archivos;
   }
 
+  /**
+   * Downloads the `LISTADO` of an estado through the same queue and session as the
+   * other requests. Answers `null` instead of failing when the portal handed back
+   * something that is not a usable document (an HTTP error, an empty body, HTML
+   * or JSON, or more than {@link MAX_DESCARGA_BYTES}); a non-allowed route still
+   * throws, because a guard must not fail silently.
+   */
+  async descargar(url: string): Promise<Buffer | null> {
+    validarRutaPortal(url);
+    try {
+      if (!this.cookies.size) await this.asegurarSesion();
+      const { cuerpo, tipo } = await this.pedirConReintento(url);
+      return esDocumento(cuerpo, tipo) ? cuerpo : null;
+    } catch (error) {
+      // The adapter already remembered the cool-down, so a block is a "no document"
+      // here and the caller keeps its loop free of portal failures.
+      if (error instanceof PortalBloqueadoError || error instanceof PortalNoDisponibleError || error instanceof Reintentable) return null;
+      throw error;
+    }
+  }
+
   private urlBusqueda(despacho: string, desde: string, hasta: string): string | null {
     const depto = despacho.slice(0, 2);
     const categoria = this.categorias.get(depto);
@@ -141,24 +189,30 @@ export class PublicacionesHttpAdapter implements PublicacionesPort {
   private async get(url: string | null): Promise<string | null> {
     if (url === null) return null;
     try {
+      return (await this.pedirConReintento(url)).cuerpo.toString('utf8');
+    } catch (error) {
+      if (error instanceof Reintentable) throw new PortalNoDisponibleError();
+      throw error;
+    }
+  }
+
+  /** GET with one retry on timeout or 5xx; a second failure escapes as `Reintentable`. */
+  private async pedirConReintento(url: string): Promise<RespuestaPortal> {
+    try {
       return await this.pedir(url, 0);
     } catch (error) {
       if (!(error instanceof Reintentable)) throw error;
       await this.sleep(PORTAL_PAUSA_REINTENTO_MS);
-      try {
-        return await this.pedir(url, 0);
-      } catch (otro) {
-        if (otro instanceof Reintentable) throw new PortalNoDisponibleError();
-        throw otro;
-      }
+      return await this.pedir(url, 0);
     }
   }
 
-  private async pedir(url: string, saltos: number): Promise<string> {
+  private async pedir(url: string, saltos: number): Promise<RespuestaPortal> {
     const destino = validarRutaPortal(url);
     if (this.ahora() < this.bloqueadoHasta) throw new PortalBloqueadoError();
-    const { status, cuerpo, ubicacion } = await this.cola.turno(() => this.unaSolicitud(destino));
-    if (status === 403 || status === 429 || PAGINA_DE_BLOQUEO.test(cuerpo.slice(0, 5000))) {
+    const respuesta = await this.cola.turno(() => this.unaSolicitud(destino));
+    const { status, cuerpo, ubicacion } = respuesta;
+    if (status === 403 || status === 429 || PAGINA_DE_BLOQUEO.test(cuerpo.subarray(0, 5000).toString('utf8'))) {
       this.bloqueadoHasta = this.ahora() + PORTAL_ENFRIAMIENTO_MS;
       throw new PortalBloqueadoError();
     }
@@ -167,10 +221,10 @@ export class PublicacionesHttpAdapter implements PublicacionesPort {
     }
     if (status >= 500) throw new Reintentable(`HTTP ${status}`);
     if (status < 200 || status >= 300) throw new PortalNoDisponibleError(`Publicaciones Procesales respondió ${status}`);
-    return cuerpo;
+    return respuesta;
   }
 
-  private async unaSolicitud(destino: URL): Promise<{ status: number; cuerpo: string; ubicacion: string | null }> {
+  private async unaSolicitud(destino: URL): Promise<RespuestaPortal> {
     // A block can start while this request waited in the queue.
     if (this.ahora() < this.bloqueadoHasta) throw new PortalBloqueadoError();
     const cookie = [...this.cookies].map(([k, v]) => `${k}=${v}`).join('; ');
@@ -185,7 +239,12 @@ export class PublicacionesHttpAdapter implements PublicacionesPort {
         const i = par.indexOf('=');
         if (i > 0) this.cookies.set(par.slice(0, i).trim(), par.slice(i + 1).trim());
       }
-      return { status: res.status, cuerpo: await res.text(), ubicacion: res.headers.get('location') };
+      return {
+        status: res.status,
+        cuerpo: Buffer.from(await res.arrayBuffer()),
+        tipo: res.headers.get('content-type')?.split(';')[0].trim().toLowerCase() ?? null,
+        ubicacion: res.headers.get('location'),
+      };
     } catch (error) {
       if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError' || error instanceof TypeError)) {
         throw new Reintentable(error.message);
@@ -193,4 +252,10 @@ export class PublicacionesHttpAdapter implements PublicacionesPort {
       throw error;
     }
   }
+}
+
+/** A body is a document when it is not empty, not huge and not an HTML/JSON answer. */
+function esDocumento(cuerpo: Buffer, tipo: string | null): boolean {
+  if (cuerpo.byteLength === 0 || cuerpo.byteLength > MAX_DESCARGA_BYTES) return false;
+  return tipo === null || !TIPOS_NO_DOCUMENTO.test(tipo);
 }

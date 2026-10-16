@@ -28,17 +28,23 @@ export class RefreshProcesoService {
     let nuevas = 0;
     let error: string | null = null;
     let mutate: (current: ProcesoCpnuState) => ProcesoCpnuState;
-    try {
-      const loaded = await this.cpnu.loadProceso(idProceso);
-      const now = ahoraIso();
-      mutate = (current) => {
-        const outcome = applyRefresh(current, loaded, now);
-        nuevas = outcome.nuevas;
-        return outcome.state;
-      };
-    } catch (e) {
-      error = errorMessage(e);
-      mutate = (current) => applyRefreshError(current, error as string);
+    // A private proceso has no CPNU expediente to read (its detail answers 404),
+    // so the stored search data is kept and no error is recorded.
+    if ((await this.procesos.findById(idProceso))?.esPrivado) {
+      mutate = (current) => current;
+    } else {
+      try {
+        const loaded = await this.cpnu.loadProceso(idProceso);
+        const now = ahoraIso();
+        mutate = (current) => {
+          const outcome = applyRefresh(current, loaded, now);
+          nuevas = outcome.nuevas;
+          return outcome.state;
+        };
+      } catch (e) {
+        error = errorMessage(e);
+        mutate = (current) => applyRefreshError(current, error as string);
+      }
     }
     const state = await this.procesos.updateCpnuState(idProceso, mutate);
     return state ? { state, nuevas, error } : { state: null, nuevas: 0, error: null };

@@ -162,7 +162,11 @@ solo como hash (scrypt); nadie, ni el operador, puede leerla.
 
 Todo se guarda en PostgreSQL (volumen `pgdata` de Docker Compose en desarrollo). Para
 respaldar la lista use `pg_dump` sobre la base `objetivo`. Los procesos marcados como
-**privados** en la Rama no se pueden seguir.
+**privados** en la Rama no tienen expediente en la CPNU (responde 404): la app guarda los
+datos de la búsqueda del radicado y los sigue por los **estados** publicados del juzgado,
+que sí los incluyen. Cada 6 horas la app busca los estados de esos despachos, descarga y lee
+el `LISTADO` del estado y, cuando el radicado aparece, lo registra como novedad del proceso:
+se ve en el detalle y en Novedades hasta marcarlo como revisado.
 
 La información proviene de la consulta pública de la Rama Judicial y es informativa;
 verifique siempre en el expediente o en la consulta oficial.
@@ -181,7 +185,9 @@ electrónicos del portal oficial [Publicaciones Procesales](https://publicacione
 - Solo enlaces: el servidor lee la página de inicio, los resultados de búsqueda y el
   detalle de cada estado, y devuelve el enlace del PDF para que lo abra el navegador.
   Nunca descarga, guarda ni reenvía PDF: `robots.txt` del portal prohíbe `/c/document_library/`,
-  `/documents/` y `/dtd/`, y el adaptador rechaza esas rutas.
+  `/documents/` y `/dtd/`, y el adaptador rechaza esas rutas. La única excepción es el
+  `LISTADO` de un estado, que la app descarga y lee para saber si un caso privado fue
+  publicado (ver **Datos**).
 - Carga: una solicitud a la vez con al menos 2 s entre solicitudes, 60 s de espera, un
   reintento ante 5xx o tiempo agotado. Ante 403, 429 o captcha se detiene 30 minutos y la
   app responde "no disponible" sin afectar lo demás.

@@ -31,12 +31,22 @@ export class PortalNoDisponibleError extends Error {
 
 /**
  * Port to the Rama Judicial's Publicaciones Procesales portal (electronic
- * estados). It only reads search results and estado detail pages; PDF links
- * are returned as they are and never fetched by the server.
+ * estados). It reads search results and estado detail pages; PDF links are
+ * returned as they are and not fetched, with one deliberate exception: the
+ * `LISTADO <n>.pdf` of an estado, because the estados channel does not inherit
+ * the reservation of a private case and the listing is the only place that says
+ * whether the case was published.
  */
 export interface PublicacionesPort {
   /** Publications of a despacho in a date range (empty when none). */
   buscarEstados(busqueda: BusquedaEstados): Promise<EstadoPublicado[]>;
   /** Files listed in the detail page of a publication. */
   listarArchivos(estado: EstadoPublicado): Promise<ArchivoPublicado[]>;
+  /**
+   * Bytes of one document of the portal (the `LISTADO` of an estado). `null` when
+   * the answer is not a usable document: an HTTP error (a portal block included:
+   * the adapter still remembered its cool-down), an empty body, HTML/JSON, or a
+   * body over the adapter's size cap.
+   */
+  descargar(url: string): Promise<Buffer | null>;
 }

@@ -90,6 +90,15 @@ export class TypeOrmProcesoRepository implements ProcesoRepository {
     return rows.map(({ idProceso, radicado }) => ({ idProceso, radicado }));
   }
 
+  async listPrivados(): Promise<ProcesoRef[]> {
+    const rows = await this.dataSource.manager.find(ProcesoEntity, {
+      select: { idProceso: true, radicado: true },
+      where: { esPrivado: true },
+      order: { agregado: 'ASC', idProceso: 'ASC' },
+    });
+    return rows.map(({ idProceso, radicado }) => ({ idProceso, radicado }));
+  }
+
   async insert(proceso: Proceso): Promise<boolean> {
     return this.dataSource.transaction(async (m) => {
       const result = await m
