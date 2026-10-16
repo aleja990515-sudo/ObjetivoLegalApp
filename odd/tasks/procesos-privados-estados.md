@@ -33,10 +33,30 @@ The app rejects private processes: `1 instancia(s) son privadas en la Rama Judic
 - [x] T2 Identity: `claveCaso()` domain helper in `apps/api/src/procesos/domain/radicado.ts` + tests. **Column dropped deliberately**: nothing queries the key in SQL — the sweep compares it in memory against the procesos of one despacho, and `radicado` never changes after the insert — so an indexed `clave_caso` column would be a second copy of a derived value. Reopen if a SQL lookup by case key is ever needed. Also dropped: the cross-court match on `año + consecutivo`, which cannot be confirmed without the parties (CPNU hides them); it stays a documented limitation.
 - [x] T3 PDF reader without dependencies: `extraerTextoPdf(buffer)` + `radicadosEnTexto(texto)` in `apps/api/src/procesos/infrastructure/pdf/texto-pdf.ts`; unit tests over a deflate-compressed fixture that mimics the real generator. Validated against the real `LISTADO 174.pdf` (`/tmp/opencode/e174.pdf`): 11 radicados, identical set to `pdftotext -layout`, including `05001311000320260030200`.
 - [x] T4 Allow the LISTADO download: `validarRutaPortal` allows exactly `/c/document_library/get_file?uuid=…` (every other `/c/document_library/` path, `/documents/` and `/dtd/` stay blocked) and the adapter gains `descargar(url)` on the shared queue with an 8 MB cap and "not a document" answers (HTML/JSON/empty/HTTP error/blocked portal) reported as `null`. Live check of the real document URL: `HTTP/2 200`, `content-type: application/pdf;charset=UTF-8`, `content-length: 36439`, so the predicate accepts it and the cap is far away.
-- [ ] T5 Periodic sweep: `EstadosService.revisar()` + its own `CronJob` (`ESTADOS_CRON`, `off` disables), narrow window, `LISTADO` selection, match by full radicado or `clave_caso`, paced through the shared portal queue.
-- [ ] T6 Detections: `estados_proceso` table + repository + `GET /api/estados` and inclusion in `novedades`; `visto` cleared when the proceso detail is read.
+- [ ] T5 (PR 3) Periodic sweep: `EstadosService.revisar()` + its own `CronJob` (`ESTADOS_CRON`, `off` disables), narrow window since the last run, `LISTADO` selection by name, match by full radicado or `claveCaso()`, paced through the shared portal queue, and a `LISTADO` that yields zero radicados recorded as unreadable instead of "not found".
+- [ ] T6a (PR 3) Detections storage: `estados_proceso` migration + entity + repository port and its TypeORM/in-memory implementations, deduplicated by `(id_proceso, url_estado)`.
+- [ ] T6b (PR 4) Detections surface: `GET /api/estados` + inclusion in `novedades`; `visto` cleared when the proceso detail is read.
 - [ ] T7 Web: replace the rejection message with the "private, we watch the estados" notice; show detected estados in the proceso detail.
 - [ ] T8 Docs: `CLAUDE.md` gotcha, `README.md`, feature doc progress with commit identities.
+
+## Delivery: stacked PRs to `main` (user choice, 2026-10-15)
+Budget: 400 changed lines per PR (authored additions + deletions). No tracker branch: each slice lands on `main` in order.
+
+| PR | Branch | Base | Holds | Review budget | Starts at | Ends with | Rollback boundary |
+|---|---|---|---|---|---|---|---|
+| 1 | `feat/procesos-privados` | `main` | `a422794`, `0ebb979` | ~260 | `main` @ 400aaff | a private case is stored and keyed by its case key | revert the two commits; the `es_privado` column is dropped by the migration `down` |
+| 2 | `feat/estados-listado-pdf` | `feat/procesos-privados` | `f064ff2` | ~370 | PR 1 | the API can download and read an estado's `LISTADO` | revert `f064ff2`; the route guard, the port and the adapter return to their previous form |
+| 3 | `feat/estados-barrido` | `feat/estados-listado-pdf` | T5 + T6a | ~400 | PR 2 | the server sweeps estados on a schedule and records what it finds | revert the commits; `estados_proceso` is dropped by the migration `down`; unset `ESTADOS_CRON` |
+| 4 | `feat/estados-visible` | `feat/estados-barrido` | T6b + T7 + T8 | ~400 | PR 3 | the office sees the detections in the app | revert the commits; the endpoints and the views disappear with them |
+
+```text
+main
+ └── PR 1: feat/procesos-privados          (privados + clave del caso)
+      └── PR 2: feat/estados-listado-pdf   (leer el LISTADO)
+           └── PR 3: feat/estados-barrido  (barrido + tabla de detecciones)
+                └── PR 4: feat/estados-visible (API + UI + doc)
+```
+T7 (the web copy that stops saying private cases cannot be followed) rides with PR 4, so between PR 1 and PR 4 a private case is stored but the old front message is gone without a replacement. Accepted by the user when choosing this strategy.
 
 ## Progress
 - 2026-10-15: feature doc created. Worktree + branch created from `main` @ 400aaff.
