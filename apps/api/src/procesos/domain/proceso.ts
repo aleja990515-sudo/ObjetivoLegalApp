@@ -71,10 +71,17 @@ export interface ProcesoOfficeState {
 }
 
 export interface Proceso extends ProcesoCpnuState, ProcesoOfficeState {
-  /** CPNU `idProceso`, stored as a string. One radicado can map to several. */
+  /** Surrogate key: what the children and every write hang from. */
+  id: string;
+  /**
+   * CPNU `idProceso`, stored as a string. One radicado can map to several, and
+   * several users can follow the same one, so it is only unique per owner.
+   */
   idProceso: string;
   /** 23-digit radicado. */
   radicado: string;
+  /** Owner (`usuarios.id`). Only this user reads and writes the proceso. */
+  usuarioId: string | null;
   /** Court name from the radicado search (fallback when `detalle.despacho` is missing). */
   despacho: string | null;
   /** Parties summary from the radicado search. */
@@ -90,6 +97,8 @@ export interface Proceso extends ProcesoCpnuState, ProcesoOfficeState {
 }
 
 export interface ProcesoRef {
+  /** Surrogate key, the only handle a row is written by. */
+  id: string;
   idProceso: string;
   radicado: string;
 }

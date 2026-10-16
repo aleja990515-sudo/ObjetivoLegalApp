@@ -7,20 +7,20 @@ describe('RefreshProcesoService', () => {
   let cpnu: FakeCpnu;
   let repo: InMemoryProcesoRepository;
   let service: RefreshProcesoService;
+  let caso: ReturnType<typeof proceso>;
 
   beforeEach(() => {
     cpnu = new FakeCpnu();
-    repo = new InMemoryProcesoRepository([
-      proceso('1', { actuaciones: [actuacion(1)], alias: 'Caso', notas: [nota('n1')] }),
-    ]);
+    caso = proceso('1', { actuaciones: [actuacion(1)], alias: 'Caso', notas: [nota('n1')] });
+    repo = new InMemoryProcesoRepository([caso]);
     service = new RefreshProcesoService(cpnu, repo);
   });
 
   it('stores the CPNU data and reports new actuaciones', async () => {
     cpnu.procesos.set('1', { detalle: { despacho: 'J' }, sujetos: [], actuaciones: [actuacion(2), actuacion(1)] });
-    const result = await service.refresh('1');
+    const result = await service.refresh(caso);
     expect(result).toMatchObject({ nuevas: 1, error: null });
-    const stored = await repo.findById('1');
+    const stored = await repo.porIdProceso('1');
     expect(stored).toMatchObject({ detalle: { despacho: 'J' }, noVistas: [2], error: null, alias: 'Caso' });
     expect(stored?.ultimaConsulta).toEqual(expect.any(String));
     expect(stored?.notas).toHaveLength(1);
@@ -28,26 +28,26 @@ describe('RefreshProcesoService', () => {
 
   it('records the CPNU error message and keeps the previous data', async () => {
     cpnu.procesos.set('1', new Error('La Rama Judicial respondió 500'));
-    const result = await service.refresh('1');
+    const result = await service.refresh(caso);
     expect(result).toMatchObject({ nuevas: 0, error: 'La Rama Judicial respondió 500' });
-    const stored = await repo.findById('1');
+    const stored = await repo.porIdProceso('1');
     expect(stored).toMatchObject({ error: 'La Rama Judicial respondió 500', actuaciones: [actuacion(1)] });
   });
 
   it('does nothing for a proceso deleted meanwhile', async () => {
     cpnu.procesos.set('2', { detalle: {}, sujetos: [], actuaciones: [actuacion(9)] });
-    expect(await service.refresh('2')).toEqual({ state: null, nuevas: 0, error: null });
-    expect(await repo.findById('2')).toBeNull();
+    const borrado = proceso('2');
+    expect(await service.refresh(borrado)).toEqual({ state: null, nuevas: 0, error: null });
+    expect(await repo.porIdProceso('2')).toBeNull();
   });
 
   it('does not call CPNU for a private proceso and keeps its stored data', async () => {
-    const privados = new InMemoryProcesoRepository([
-      proceso('7', { esPrivado: true, despacho: 'JUZGADO 003 DE FAMILIA', alias: 'Privado' }),
-    ]);
-    const result = await new RefreshProcesoService(cpnu, privados).refresh('7');
+    const privado = proceso('7', { esPrivado: true, despacho: 'JUZGADO 003 DE FAMILIA', alias: 'Privado' });
+    const privados = new InMemoryProcesoRepository([privado]);
+    const result = await new RefreshProcesoService(cpnu, privados).refresh(privado);
     expect(result).toMatchObject({ nuevas: 0, error: null, state: { actuaciones: [], ultimaConsulta: null } });
     expect(cpnu.calls).toEqual([]);
-    expect(await privados.findById('7')).toMatchObject({
+    expect(await privados.findById('7', privado.usuarioId as string)).toMatchObject({
       esPrivado: true,
       despacho: 'JUZGADO 003 DE FAMILIA',
       alias: 'Privado',
@@ -70,7 +70,7 @@ describe('RefreshProcesoService', () => {
         error: null,
       });
       expect(hydrated.ultimaConsulta).toEqual(expect.any(String));
-      expect(await repo.findById('7')).toBeNull(); // the caller stores it
+      expect(await repo.porIdProceso('7')).toBeNull(); // the caller stores it
     });
 
     it('keeps the proceso with the error message when CPNU fails', async () => {

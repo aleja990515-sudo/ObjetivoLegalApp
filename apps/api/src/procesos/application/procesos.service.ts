@@ -67,11 +67,11 @@ export class ProcesosService {
     private readonly detector: DetectInstancesService,
   ) {}
 
-  async list(): Promise<ListaProcesos> {
+  async list(usuario: SessionUser): Promise<ListaProcesos> {
     const today = hoy();
     const noVistos = await this.estados.contarNoVistos();
-    const procesos = (await this.procesos.findAll())
-      .map((p) => resumen(p, today, noVistos.get(p.idProceso) ?? 0))
+    const procesos = (await this.procesos.findAll(usuario.id))
+      .map((p) => resumen(p, today, noVistos.get(p.id) ?? 0))
       .sort(compararProcesos);
     return { procesos, ultimaRevision: await this.meta.get(META_ULTIMA_REVISION) };
   }
@@ -87,13 +87,13 @@ export class ProcesosService {
       throw new ApiError(404, 'No se encontró ese radicado en la Consulta Nacional Unificada.');
     }
 
-    const seguidos = new Set((await this.procesos.listRefs()).map((r) => r.idProceso));
+    const seguidos = new Set((await this.procesos.listRefs(usuario.id)).map((r) => r.idProceso));
     const today = hoy();
     const agregados: (ProcesoResumen | ProcesoPrivado)[] = [];
     for (const encontrado of encontrados) {
       const id = String(encontrado.idProceso);
       if (seguidos.has(id)) continue;
-      const inicial = newProceso(encontrado, numero, usuario.nombre, ahora(), { alias: texto(alias, LIMITE.alias) });
+      const inicial = newProceso(encontrado, numero, usuario.nombre, usuario.id, ahora(), { alias: texto(alias, LIMITE.alias) });
       // A private proceso is stored with the little the search returns: CPNU
       // answers 404 for its detail, parties and actuaciones.
       const proceso = encontrado.esPrivado ? inicial : await this.refresher.hydrateNew(inicial);
@@ -104,53 +104,62 @@ export class ProcesosService {
     return { agregados };
   }
 
-  async novedades(): Promise<Novedad[]> {
-    return construirNovedades(await this.procesos.findAll(), await this.estados.listarNoVistos());
+  async novedades(usuario: SessionUser): Promise<Novedad[]> {
+    const procesos = await this.procesos.findAll(usuario.id);
+    return construirNovedades(procesos, await this.estados.listarNoVistos(procesos.map((p) => p.id)));
   }
 
-  async documentos(idActuacion: string): Promise<DocumentoActuacion[]> {
+  /** CPNU documents of an actuación, which has to be one of this proceso's. */
+  async documentos(usuario: SessionUser, idProceso: string, idActuacion: string): Promise<DocumentoActuacion[]> {
+    const proceso = await this.existente(usuario, idProceso);
+    // CPNU looks up `idActuacion` on its own, office-wide: without this the route
+    // would only prove the caller owns the proceso, and any actuación id could be
+    // nested under it to read its documents.
+    if (!proceso.actuaciones.some((a) => String(a.id) === idActuacion)) {
+      throw new ApiError(404, 'Proceso no encontrado.');
+    }
     return this.cpnu.listDocumentos(idActuacion);
   }
 
-  async detalle(idProceso: string): Promise<ProcesoDetalle> {
-    return this.vista(idProceso);
+  async detalle(usuario: SessionUser, idProceso: string): Promise<ProcesoDetalle> {
+    return this.vista(usuario, idProceso);
   }
 
   /** Office-owned fields only (alias, responsable, etiquetas). */
-  async actualizarOficina(idProceso: string, body: unknown): Promise<ProcesoDetalle> {
-    await this.existente(idProceso);
+  async actualizarOficina(usuario: SessionUser, idProceso: string, body: unknown): Promise<ProcesoDetalle> {
+    const proceso = await this.existente(usuario, idProceso);
     const b = cuerpoObjeto(body);
     const cambios: ProcesoOfficeChanges = {};
     if ('alias' in b) cambios.alias = texto(b.alias, LIMITE.alias);
     if ('responsable' in b) cambios.responsable = texto(b.responsable, LIMITE.responsable);
     if ('etiquetas' in b) cambios.etiquetas = normalizarEtiquetas(b.etiquetas);
-    if (Object.keys(cambios).length) await this.procesos.updateOffice(idProceso, cambios);
-    return this.vista(idProceso);
+    if (Object.keys(cambios).length) await this.procesos.updateOffice(proceso.id, cambios);
+    return this.vista(usuario, idProceso);
   }
 
-  async eliminar(idProceso: string): Promise<{ ok: true }> {
-    await this.existente(idProceso);
-    await this.procesos.delete(idProceso);
+  async eliminar(usuario: SessionUser, idProceso: string): Promise<{ ok: true }> {
+    const proceso = await this.existente(usuario, idProceso);
+    await this.procesos.delete(proceso.id);
     return { ok: true };
   }
 
-  async marcarVisto(idProceso: string): Promise<ProcesoResumen> {
-    const proceso = await this.existente(idProceso);
-    await this.procesos.markSeen(idProceso);
+  async marcarVisto(usuario: SessionUser, idProceso: string): Promise<ProcesoResumen> {
+    const proceso = await this.existente(usuario, idProceso);
+    await this.procesos.markSeen(proceso.id);
     // A detection is a novedad too, so one route clears both kinds.
-    await this.estados.marcarVistos(idProceso);
+    await this.estados.marcarVistos(proceso.id);
     return resumen({ ...proceso, noVistas: [], nuevaInstancia: false }, hoy());
   }
 
   /** Re-reads CPNU and then looks for new instances; CPNU failures are stored, not raised. */
-  async actualizar(idProceso: string): Promise<ProcesoActualizado> {
-    await this.existente(idProceso);
-    const refresco = await this.refresher.refresh(idProceso);
+  async actualizar(usuario: SessionUser, idProceso: string): Promise<ProcesoActualizado> {
+    const antes = await this.existente(usuario, idProceso);
+    const refresco = await this.refresher.refresh(antes);
     if (!refresco.state) throw new ApiError(404, 'Proceso no encontrado.');
-    const proceso = await this.existente(idProceso);
+    const proceso = await this.existente(usuario, idProceso);
     let instanciasNuevas = 0;
     try {
-      instanciasNuevas = await this.detector.detect(proceso.radicado, proceso);
+      instanciasNuevas = await this.detector.detect(proceso.radicado, [proceso]);
     } catch {
       instanciasNuevas = 0; // a failed search never fails the refresh (legacy behaviour)
     }
@@ -158,30 +167,30 @@ export class ProcesosService {
   }
 
   async agregarNota(usuario: SessionUser, idProceso: string, body: unknown): Promise<ProcesoDetalle> {
-    await this.existente(idProceso);
+    const proceso = await this.existente(usuario, idProceso);
     const textoNota = texto(cuerpoObjeto(body).texto, LIMITE.nota);
     if (!textoNota) throw new ApiError(400, 'La nota está vacía.');
-    await this.procesos.addNota(idProceso, {
+    await this.procesos.addNota(proceso.id, {
       id: nuevoId(),
       texto: textoNota,
       autor: usuario.nombre,
       fecha: ahora(),
     });
-    return this.vista(idProceso);
+    return this.vista(usuario, idProceso);
   }
 
-  async eliminarNota(idProceso: string, idNota: string): Promise<ProcesoDetalle> {
-    await this.existente(idProceso);
-    await this.procesos.deleteNota(idProceso, idNota);
-    return this.vista(idProceso);
+  async eliminarNota(usuario: SessionUser, idProceso: string, idNota: string): Promise<ProcesoDetalle> {
+    const proceso = await this.existente(usuario, idProceso);
+    await this.procesos.deleteNota(proceso.id, idNota);
+    return this.vista(usuario, idProceso);
   }
 
   async agregarTarea(usuario: SessionUser, idProceso: string, body: unknown): Promise<ProcesoDetalle> {
-    const proceso = await this.existente(idProceso);
+    const proceso = await this.existente(usuario, idProceso);
     const b = cuerpoObjeto(body);
     const titulo = texto(b.titulo, LIMITE.titulo);
     if (!titulo || !fechaValida(b.fecha)) throw new ApiError(400, 'Escribe la actividad y una fecha válida.');
-    await this.procesos.addTarea(idProceso, {
+    await this.procesos.addTarea(proceso.id, {
       id: nuevoId(),
       titulo,
       fecha: b.fecha,
@@ -193,11 +202,11 @@ export class ProcesosService {
       autor: usuario.nombre,
       creada: ahora(),
     });
-    return this.vista(idProceso);
+    return this.vista(usuario, idProceso);
   }
 
   async actualizarTarea(usuario: SessionUser, idProceso: string, idTarea: string, body: unknown): Promise<ProcesoDetalle> {
-    await this.tareaExistente(idProceso, idTarea);
+    const proceso = await this.tareaExistente(usuario, idProceso, idTarea);
     const b = cuerpoObjeto(body);
     const cambios: TareaChanges = {};
     if ('hecha' in b) {
@@ -208,30 +217,37 @@ export class ProcesosService {
     if ('fecha' in b && fechaValida(b.fecha)) cambios.fecha = b.fecha;
     if ('hora' in b) cambios.hora = horaValida(b.hora);
     if ('responsable' in b) cambios.responsable = texto(b.responsable, LIMITE.responsable);
-    await this.procesos.updateTarea(idProceso, idTarea, cambios);
-    return this.vista(idProceso);
+    await this.procesos.updateTarea(proceso.id, idTarea, cambios);
+    return this.vista(usuario, idProceso);
   }
 
-  async eliminarTarea(idProceso: string, idTarea: string): Promise<ProcesoDetalle> {
-    await this.tareaExistente(idProceso, idTarea);
-    await this.procesos.deleteTarea(idProceso, idTarea);
-    return this.vista(idProceso);
+  async eliminarTarea(usuario: SessionUser, idProceso: string, idTarea: string): Promise<ProcesoDetalle> {
+    const proceso = await this.tareaExistente(usuario, idProceso, idTarea);
+    await this.procesos.deleteTarea(proceso.id, idTarea);
+    return this.vista(usuario, idProceso);
   }
 
-  /** The route guard for every `/procesos/:id` path (legacy 404 "Proceso no encontrado."). */
-  private async existente(idProceso: string): Promise<Proceso> {
-    const proceso = await this.procesos.findById(idProceso);
+  /**
+   * The route guard for every `/procesos/:id` path (legacy 404 "Proceso no
+   * encontrado."). The scoped read makes it an ownership check: a proceso of
+   * another user is indistinguishable from a missing one, so existence never leaks.
+   * It is also what hands every write below the surrogate `id` of the caller's own
+   * copy, so no write can land on the copy another user keeps of the same expediente.
+   */
+  private async existente(usuario: SessionUser, idProceso: string): Promise<Proceso> {
+    const proceso = await this.procesos.findById(idProceso, usuario.id);
     if (!proceso) throw new ApiError(404, 'Proceso no encontrado.');
     return proceso;
   }
 
-  private async tareaExistente(idProceso: string, idTarea: string): Promise<void> {
-    const proceso = await this.existente(idProceso);
+  private async tareaExistente(usuario: SessionUser, idProceso: string, idTarea: string): Promise<Proceso> {
+    const proceso = await this.existente(usuario, idProceso);
     if (!proceso.tareas.some((t) => t.id === idTarea)) throw new ApiError(404, 'Tarea no encontrada.');
+    return proceso;
   }
 
-  private async vista(idProceso: string): Promise<ProcesoDetalle> {
-    const proceso = await this.existente(idProceso);
-    return detalleCompleto(proceso, hoy(), await this.estados.listarPorProceso(idProceso));
+  private async vista(usuario: SessionUser, idProceso: string): Promise<ProcesoDetalle> {
+    const proceso = await this.existente(usuario, idProceso);
+    return detalleCompleto(proceso, hoy(), await this.estados.listarPorProceso(proceso.id));
   }
 }

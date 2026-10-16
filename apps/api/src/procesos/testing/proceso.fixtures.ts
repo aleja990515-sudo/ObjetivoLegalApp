@@ -1,6 +1,10 @@
 // Test fixtures for the procesos domain (used by unit and integration tests).
+import { randomUUID } from 'node:crypto';
 import type { EstadoProceso } from '../domain/estado-proceso.repository.js';
 import type { Actuacion, Nota, Proceso, Tarea } from '../domain/proceso.js';
+
+/** Owner of the fixture procesos, and the session the specs act as. */
+export const USUARIO = { id: '3f2a8c10-4d5e-4a6b-8c9d-0e1f2a3b4c5d', nombre: 'Ana' };
 
 export function actuacion(id: number, overrides: Partial<Actuacion> = {}): Actuacion {
   return {
@@ -37,10 +41,10 @@ export function tarea(id: string, overrides: Partial<Tarea> = {}): Tarea {
   };
 }
 
-/** One estado of a despacho in which a caso was found. */
+/** One estado of a despacho in which a caso was found; `procesoId` is the surrogate `procesos.id`. */
 export function estadoProceso(overrides: Partial<EstadoProceso> = {}): EstadoProceso {
   return {
-    idProceso: '1',
+    procesoId: '9d1c5e7a-2b3f-4c4d-8e5f-6a7b8c9d0e1f',
     urlEstado: 'https://portal.test/web/publicaciones-procesales/inicio?articleId=174',
     numeroEstado: '174',
     fechaPublicacion: '2026-10-14',
@@ -51,10 +55,17 @@ export function estadoProceso(overrides: Partial<EstadoProceso> = {}): EstadoPro
   };
 }
 
+/**
+ * `id` is the surrogate key and is fresh on every call, exactly like the one
+ * `newProceso` mints: two fixtures may share an `idProceso` to stand for two users
+ * following the same expediente. Override it when the spec has to address the row.
+ */
 export function proceso(idProceso: string, overrides: Partial<Proceso> = {}): Proceso {
   return {
+    id: randomUUID(),
     idProceso,
     radicado: '11001310300120190012300',
+    usuarioId: USUARIO.id,
     despacho: 'JUZGADO 001 CIVIL DEL CIRCUITO',
     sujetosTexto: 'Demandante: A | Demandado: B',
     esPrivado: false,

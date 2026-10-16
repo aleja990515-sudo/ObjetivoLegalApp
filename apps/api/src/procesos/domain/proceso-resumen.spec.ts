@@ -162,16 +162,17 @@ describe('proceso-resumen (legacy resumen/detalleCompleto)', () => {
     expect(resumen(p, HOY, 2)).toMatchObject({ estadosNoVistos: 2, noVistas: 0 });
 
     const detalle = detalleCompleto(p, HOY, [
-      estadoProceso({ idProceso: '7' }),
-      estadoProceso({ idProceso: '7', urlEstado: 'https://portal.test/?articleId=170', visto: true }),
+      estadoProceso({ procesoId: p.id }),
+      estadoProceso({ procesoId: p.id, urlEstado: 'https://portal.test/?articleId=170', visto: true }),
     ]);
     expect(detalle).toMatchObject({ estadosNoVistos: 1, estados: [expect.anything(), expect.anything()] });
   });
 
   describe('novedades', () => {
     it('lists an unseen estado detection of a proceso without actuaciones', () => {
-      const deteccion = estadoProceso({ idProceso: '7', fechaPublicacion: '2026-10-14' });
-      const items = novedades([proceso('7', { esPrivado: true })], [deteccion]);
+      const privado = proceso('7', { esPrivado: true });
+      const deteccion = estadoProceso({ procesoId: privado.id, fechaPublicacion: '2026-10-14' });
+      const items = novedades([privado], [deteccion]);
 
       expect(items).toEqual([
         expect.objectContaining({
@@ -185,11 +186,12 @@ describe('proceso-resumen (legacy resumen/detalleCompleto)', () => {
 
     it('mixes actuaciones, new instances and detections, newest first', () => {
       const p = proceso('1', { actuaciones: [actuacion(1, { fecha: '2026-09-01T00:00:00' })], noVistas: [1] });
+      const q = proceso('2', { nuevaInstancia: true, agregado: '2026-08-01T00:00:00.000Z' });
       const items = novedades(
-        [p, proceso('2', { nuevaInstancia: true, agregado: '2026-08-01T00:00:00.000Z' })],
+        [p, q],
         [
-          estadoProceso({ idProceso: '1', fechaPublicacion: '2026-10-14' }),
-          estadoProceso({ idProceso: '2', urlEstado: 'https://portal.test/?articleId=2', fechaPublicacion: null }),
+          estadoProceso({ procesoId: p.id, fechaPublicacion: '2026-10-14' }),
+          estadoProceso({ procesoId: q.id, urlEstado: 'https://portal.test/?articleId=2', fechaPublicacion: null }),
         ],
       );
 
@@ -202,7 +204,7 @@ describe('proceso-resumen (legacy resumen/detalleCompleto)', () => {
     });
 
     it('ignores the detections of a proceso that is no longer followed', () => {
-      expect(novedades([], [estadoProceso({ idProceso: '7' })])).toEqual([]);
+      expect(novedades([], [estadoProceso()])).toEqual([]);
     });
   });
 

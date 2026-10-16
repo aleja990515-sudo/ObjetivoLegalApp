@@ -4,7 +4,8 @@ export const AUTO_PUBLICADO_REPOSITORY = Symbol('AUTO_PUBLICADO_REPOSITORY');
 
 /** Stored result of the search of one providencia in Publicaciones Procesales. */
 export interface AutoPublicado extends ResultadoAuto {
-  idProceso: string;
+  /** Surrogate `procesos.id`: one copy of an expediente caches its own results. */
+  procesoId: string;
   idActuacion: number;
   /** ISO instant of the last search. */
   buscadoEn: string;
@@ -14,7 +15,7 @@ export interface AutoPublicado extends ResultadoAuto {
 
 /** Persistence port of the autos results (one row per actuación of a proceso). */
 export interface AutoPublicadoRepository {
-  buscar(idProceso: string, idActuacion: number): Promise<AutoPublicado | null>;
+  buscar(procesoId: string, idActuacion: number): Promise<AutoPublicado | null>;
   /** Inserts or replaces the row. Returns `false` (and stores nothing) when the proceso no longer exists. */
   guardar(auto: AutoPublicado): Promise<boolean>;
 }

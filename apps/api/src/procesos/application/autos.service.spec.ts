@@ -1,17 +1,18 @@
+import { ApiError } from '../../common/http/api-error.js';
 import type { AutoPublicado, AutoPublicadoRepository } from '../domain/auto-publicado.repository.js';
 import type { EstadoPublicado } from '../domain/autos.js';
 import { FakePublicaciones } from '../testing/fake-publicaciones.js';
 import { InMemoryProcesoRepository } from '../testing/in-memory-proceso.repository.js';
-import { actuacion, proceso } from '../testing/proceso.fixtures.js';
+import { actuacion, proceso, USUARIO } from '../testing/proceso.fixtures.js';
 import { AutosService, MAX_ESTADOS_REVISADOS } from './autos.service.js';
 
 class MemoriaAutos implements AutoPublicadoRepository {
   readonly filas = new Map<string, AutoPublicado>();
-  async buscar(idProceso: string, idActuacion: number) {
-    return this.filas.get(`${idProceso}:${idActuacion}`) ?? null;
+  async buscar(procesoId: string, idActuacion: number) {
+    return this.filas.get(`${procesoId}:${idActuacion}`) ?? null;
   }
   async guardar(auto: AutoPublicado) {
-    this.filas.set(`${auto.idProceso}:${auto.idActuacion}`, auto);
+    this.filas.set(`${auto.procesoId}:${auto.idActuacion}`, auto);
     return true;
   }
 }
@@ -41,7 +42,7 @@ describe('AutosService', () => {
   });
 
   it('searches the portal once for concurrent requests of the same actuación', async () => {
-    const [a, b] = await Promise.all([servicio.auto('1', 11), servicio.auto('1', 11)]);
+    const [a, b] = await Promise.all([servicio.auto(USUARIO, '1', 11), servicio.auto(USUARIO, '1', 11)]);
     expect(a).toEqual(b);
     expect(portal.calls.filter((c) => c.startsWith('buscar:'))).toHaveLength(1);
   });
@@ -49,10 +50,17 @@ describe('AutosService', () => {
   it(`reads at most ${MAX_ESTADOS_REVISADOS} estado pages and then links the closest estado`, async () => {
     const dias = ['2026-09-11', '2026-09-14', '2026-09-15', '2026-09-10', '2026-09-16', '2026-09-17'];
     portal.estados.set('050013110015', dias.map(estado));
-    const resultado = await servicio.auto('1', 11);
+    const resultado = await servicio.auto(USUARIO, '1', 11);
     expect(portal.calls.filter((c) => c.startsWith('archivos:'))).toHaveLength(MAX_ESTADOS_REVISADOS);
     // No fijación in CPNU: the next business day (2026-09-11) is the reference.
     expect(resultado).toMatchObject({ confianza: 'estado', urlEstado: estado('2026-09-11').urlEstado });
     expect(portal.calls[0]).toBe('buscar:050013110015:2026-09-10:2026-09-15');
+  });
+
+  it('answers 404 to another user, without searching the portal', async () => {
+    const error = await servicio.auto({ id: 'u-luis', nombre: 'Luis' }, '1', 11).then(() => null, (e: unknown) => e);
+    expect(error).toMatchObject({ status: 404 });
+    expect((error as ApiError).getResponse()).toEqual({ error: 'Proceso no encontrado.' });
+    expect(portal.calls).toEqual([]);
   });
 });

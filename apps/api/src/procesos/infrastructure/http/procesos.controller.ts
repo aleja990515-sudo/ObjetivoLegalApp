@@ -10,8 +10,8 @@ export class ProcesosController {
   constructor(private readonly procesos: ProcesosService) {}
 
   @Get('procesos')
-  listar() {
-    return this.procesos.list();
+  listar(@CurrentUser() usuario: SessionUser) {
+    return this.procesos.list(usuario);
   }
 
   @Post('procesos')
@@ -20,41 +20,46 @@ export class ProcesosController {
   }
 
   @Get('novedades')
-  novedades() {
-    return this.procesos.novedades();
+  novedades(@CurrentUser() usuario: SessionUser) {
+    return this.procesos.novedades(usuario);
   }
 
-  @Get('actuaciones/:id/documentos')
-  documentos(@Param('id') id: string) {
-    if (!/^\d+$/.test(id)) throw new ApiError(404, ROUTE_NOT_FOUND_MESSAGE);
-    return this.procesos.documentos(id);
+  /** Nested under the proceso so `existente` can prove ownership before CPNU is asked. */
+  @Get('procesos/:id/actuaciones/:actuacionId/documentos')
+  documentos(
+    @Param('id') id: string,
+    @Param('actuacionId') actuacionId: string,
+    @CurrentUser() usuario: SessionUser,
+  ) {
+    if (!/^\d+$/.test(actuacionId)) throw new ApiError(404, ROUTE_NOT_FOUND_MESSAGE);
+    return this.procesos.documentos(usuario, id, actuacionId);
   }
 
   @Get('procesos/:id')
-  detalle(@Param('id') id: string) {
-    return this.procesos.detalle(id);
+  detalle(@Param('id') id: string, @CurrentUser() usuario: SessionUser) {
+    return this.procesos.detalle(usuario, id);
   }
 
   @Patch('procesos/:id')
-  actualizarOficina(@Param('id') id: string, @Body() body: unknown) {
-    return this.procesos.actualizarOficina(id, body);
+  actualizarOficina(@Param('id') id: string, @Body() body: unknown, @CurrentUser() usuario: SessionUser) {
+    return this.procesos.actualizarOficina(usuario, id, body);
   }
 
   @Delete('procesos/:id')
-  eliminar(@Param('id') id: string) {
-    return this.procesos.eliminar(id);
+  eliminar(@Param('id') id: string, @CurrentUser() usuario: SessionUser) {
+    return this.procesos.eliminar(usuario, id);
   }
 
   @Post('procesos/:id/visto')
   @HttpCode(200)
-  marcarVisto(@Param('id') id: string) {
-    return this.procesos.marcarVisto(id);
+  marcarVisto(@Param('id') id: string, @CurrentUser() usuario: SessionUser) {
+    return this.procesos.marcarVisto(usuario, id);
   }
 
   @Post('procesos/:id/actualizar')
   @HttpCode(200)
-  actualizar(@Param('id') id: string) {
-    return this.procesos.actualizar(id);
+  actualizar(@Param('id') id: string, @CurrentUser() usuario: SessionUser) {
+    return this.procesos.actualizar(usuario, id);
   }
 
   @Post('procesos/:id/notas')
@@ -63,8 +68,8 @@ export class ProcesosController {
   }
 
   @Delete('procesos/:id/notas/:nid')
-  eliminarNota(@Param('id') id: string, @Param('nid') nid: string) {
-    return this.procesos.eliminarNota(id, nid);
+  eliminarNota(@Param('id') id: string, @Param('nid') nid: string, @CurrentUser() usuario: SessionUser) {
+    return this.procesos.eliminarNota(usuario, id, nid);
   }
 
   @Post('procesos/:id/tareas')
@@ -83,7 +88,7 @@ export class ProcesosController {
   }
 
   @Delete('procesos/:id/tareas/:tid')
-  eliminarTarea(@Param('id') id: string, @Param('tid') tid: string) {
-    return this.procesos.eliminarTarea(id, tid);
+  eliminarTarea(@Param('id') id: string, @Param('tid') tid: string, @CurrentUser() usuario: SessionUser) {
+    return this.procesos.eliminarTarea(usuario, id, tid);
   }
 }

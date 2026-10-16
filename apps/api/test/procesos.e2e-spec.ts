@@ -8,7 +8,7 @@ import {
 import { PROCESO_REPOSITORY, type ProcesoRepository } from '../src/procesos/domain/proceso.repository.js';
 import { encontrado, FakeCpnu } from '../src/procesos/testing/fake-cpnu.js';
 import { actuacion, estadoProceso, nota, proceso, tarea } from '../src/procesos/testing/proceso.fixtures.js';
-import { iniciarSesion } from './support/sesion.js';
+import { BETO, asegurarUsuarioActivo, iniciarSesion } from './support/sesion.js';
 import { createTestApp } from './support/test-app.js';
 import { truncateAll } from './support/test-database.js';
 
@@ -20,6 +20,7 @@ describe('Procesos API contract (e2e)', () => {
   let procesos: ProcesoRepository;
   let estados: EstadoProcesoRepository;
   let cookie: string;
+  let ana: string;
 
   const http = () => request(app.getHttpServer());
 
@@ -28,7 +29,6 @@ describe('Procesos API contract (e2e)', () => {
     app = await createTestApp({ cpnu });
     procesos = app.get(PROCESO_REPOSITORY);
     estados = app.get(ESTADO_PROCESO_REPOSITORY);
-    cookie = await iniciarSesion(app);
   });
 
   afterAll(async () => {
@@ -37,21 +37,29 @@ describe('Procesos API contract (e2e)', () => {
 
   beforeEach(async () => {
     await truncateAll(app.get(DataSource));
+    // The session is minted here, after the truncate: it kills `usuarios`, so a cookie
+    // from `beforeAll` would name a user that no longer exists and every read would
+    // come back empty. The id must also match the fixtures, `procesos.usuario_id` is a FK.
+    ({ cookie, usuarioId: ana } = await iniciarSesion(app));
     cpnu.radicados.clear();
     cpnu.procesos.clear();
     cpnu.documentos.clear();
     cpnu.calls.length = 0;
   });
 
-  const sembrar = (overrides = {}) =>
-    procesos.insert(proceso('1', { radicado: RADICADO, alias: 'Caso', responsable: 'Luz', ...overrides }));
+  /** Stores the proceso and hands it back: estados hang from its surrogate `id`. */
+  const sembrar = async (overrides = {}) => {
+    const sembrado = proceso('1', { usuarioId: ana, radicado: RADICADO, alias: 'Caso', responsable: 'Luz', ...overrides });
+    await procesos.insert(sembrado);
+    return sembrado;
+  };
 
   describe('session', () => {
     const rutas: [string, string][] = [
       ['get', '/api/procesos'],
       ['post', '/api/procesos'],
       ['get', '/api/novedades'],
-      ['get', '/api/actuaciones/5/documentos'],
+      ['get', '/api/procesos/1/actuaciones/5/documentos'],
       ['get', '/api/procesos/1'],
       ['patch', '/api/procesos/1'],
       ['delete', '/api/procesos/1'],
@@ -110,7 +118,7 @@ describe('Procesos API contract (e2e)', () => {
           ultimaActuacion: expect.objectContaining({ id: 2 }),
         }),
       ]);
-      expect(await procesos.findById('1')).toMatchObject({ alias: 'Caso nuevo', actuaciones: [expect.anything(), expect.anything()] });
+      expect(await procesos.findById('1', ana)).toMatchObject({ alias: 'Caso nuevo', actuaciones: [expect.anything(), expect.anything()] });
     });
 
     it('keeps the proceso with an error message when CPNU fails during the first load', async () => {
@@ -139,7 +147,7 @@ describe('Procesos API contract (e2e)', () => {
           error: null,
         }),
       ]);
-      expect(await procesos.findById('7')).toMatchObject({
+      expect(await procesos.findById('7', ana)).toMatchObject({
         esPrivado: true,
         sujetosTexto: null, // CPNU's "--- [ PROCESO PRIVADO ] ---" placeholder is never stored
         despacho: 'DESPACHO 7',
@@ -163,9 +171,9 @@ describe('Procesos API contract (e2e)', () => {
   describe('GET /api/procesos', () => {
     it('answers {procesos, ultimaRevision} with the list summary, sorted like legacy', async () => {
       await sembrar({ actuaciones: [actuacion(1, { fecha: '2026-01-10T00:00:00' })] });
-      await procesos.insert(proceso('2', { radicado: RADICADO, noVistas: [5], actuaciones: [actuacion(5, { fecha: '2025-01-01T00:00:00' })] }));
-      await procesos.insert(proceso('3', { radicado: RADICADO, actuaciones: [] }));
-      await procesos.insert(proceso('4', { radicado: RADICADO, actuaciones: [actuacion(9, { fecha: '2026-02-01T00:00:00' })] }));
+      await procesos.insert(proceso('2', { usuarioId: ana, radicado: RADICADO, noVistas: [5], actuaciones: [actuacion(5, { fecha: '2025-01-01T00:00:00' })] }));
+      await procesos.insert(proceso('3', { usuarioId: ana, radicado: RADICADO, actuaciones: [] }));
+      await procesos.insert(proceso('4', { usuarioId: ana, radicado: RADICADO, actuaciones: [actuacion(9, { fecha: '2026-02-01T00:00:00' })] }));
 
       const res = await http().get('/api/procesos').set('Cookie', cookie).expect(200);
 
@@ -184,12 +192,12 @@ describe('Procesos API contract (e2e)', () => {
     });
 
     it('reports the unseen estado detections of each proceso, and 0 once they are seen', async () => {
-      await sembrar({ esPrivado: true, sujetosTexto: null });
-      await procesos.insert(proceso('2', { radicado: RADICADO }));
-      await estados.guardar(estadoProceso({ idProceso: '1' }));
+      const privado = await sembrar({ esPrivado: true, sujetosTexto: null });
+      await procesos.insert(proceso('2', { usuarioId: ana, radicado: RADICADO }));
+      await estados.guardar(estadoProceso({ procesoId: privado.id }));
       await estados.guardar(
         estadoProceso({
-          idProceso: '1',
+          procesoId: privado.id,
           urlEstado: 'https://portal.test/web/publicaciones-procesales/inicio?articleId=170',
           numeroEstado: '170',
           visto: true,
@@ -214,7 +222,7 @@ describe('Procesos API contract (e2e)', () => {
         actuaciones: [actuacion(1, { fecha: '2026-01-01T00:00:00' }), actuacion(2, { fecha: '2026-03-01T00:00:00' })],
         noVistas: [1, 2],
       });
-      await procesos.insert(proceso('2', { radicado: RADICADO, nuevaInstancia: true, agregado: '2026-02-01T00:00:00.000Z' }));
+      await procesos.insert(proceso('2', { usuarioId: ana, radicado: RADICADO, nuevaInstancia: true, agregado: '2026-02-01T00:00:00.000Z' }));
 
       const res = await http().get('/api/novedades').set('Cookie', cookie).expect(200);
 
@@ -228,11 +236,11 @@ describe('Procesos API contract (e2e)', () => {
     });
 
     it('lists the unseen estado detections of a private proceso and skips the seen ones', async () => {
-      await sembrar({ esPrivado: true, sujetosTexto: null });
-      await estados.guardar(estadoProceso({ idProceso: '1' }));
+      const privado = await sembrar({ esPrivado: true, sujetosTexto: null });
+      await estados.guardar(estadoProceso({ procesoId: privado.id }));
       await estados.guardar(
         estadoProceso({
-          idProceso: '1',
+          procesoId: privado.id,
           urlEstado: 'https://portal.test/web/publicaciones-procesales/inicio?articleId=170',
           numeroEstado: '170',
           fechaPublicacion: '2026-10-01',
@@ -259,20 +267,111 @@ describe('Procesos API contract (e2e)', () => {
     });
   });
 
-  describe('GET /api/actuaciones/:id/documentos', () => {
+  describe('GET /api/procesos/:id/actuaciones/:actuacionId/documentos', () => {
     it('lists the CPNU documents of an actuación', async () => {
+      await sembrar({ actuaciones: [actuacion(5)] });
       cpnu.documentos.set('5', [
         { id: 77, tipo: 'PDF', fechaCarga: '2026-01-01', nombre: 'Auto.pdf', url: 'https://cpnu/Descarga/Documento/77' },
       ]);
-      const res = await http().get('/api/actuaciones/5/documentos').set('Cookie', cookie).expect(200);
+      const res = await http().get('/api/procesos/1/actuaciones/5/documentos').set('Cookie', cookie).expect(200);
       expect(res.body).toEqual([
         { id: 77, tipo: 'PDF', fechaCarga: '2026-01-01', nombre: 'Auto.pdf', url: 'https://cpnu/Descarga/Documento/77' },
       ]);
     });
 
     it('answers 404 "Ruta no encontrada." for a non-numeric actuación id', async () => {
-      const res = await http().get('/api/actuaciones/abc/documentos').set('Cookie', cookie).expect(404);
+      await sembrar();
+      const res = await http().get('/api/procesos/1/actuaciones/abc/documentos').set('Cookie', cookie).expect(404);
       expect(res.body).toEqual({ error: 'Ruta no encontrada.' });
+    });
+
+    it('answers 404 for an actuación that is not in the proceso, without asking CPNU', async () => {
+      // CPNU resolves `idActuacion` office-wide, so owning the proceso is not a proof.
+      await sembrar({ actuaciones: [actuacion(5)] });
+      cpnu.documentos.set('99', [
+        { id: 78, tipo: 'PDF', fechaCarga: '2026-01-01', nombre: 'Otro.pdf', url: 'https://cpnu/Descarga/Documento/78' },
+      ]);
+
+      const res = await http().get('/api/procesos/1/actuaciones/99/documentos').set('Cookie', cookie).expect(404);
+
+      expect(res.body).toEqual({ error: 'Proceso no encontrado.' });
+      expect(cpnu.calls).toEqual([]);
+    });
+
+    it('is not reachable unscoped: the legacy /actuaciones/:id/documentos route is gone', async () => {
+      await sembrar();
+      cpnu.documentos.set('5', [{ id: 77, tipo: 'PDF', fechaCarga: '2026-01-01', nombre: 'Auto.pdf', url: 'https://x/77' }]);
+      const res = await http().get('/api/actuaciones/5/documentos').set('Cookie', cookie).expect(404);
+      expect(res.body).toEqual({ error: 'Ruta no encontrada.' });
+      expect(cpnu.calls).toEqual([]);
+    });
+
+    it('answers 404 on a proceso of another user and leaks no document name or url', async () => {
+      await sembrar({ actuaciones: [actuacion(5)] });
+      cpnu.documentos.set('5', [
+        { id: 77, tipo: 'PDF', fechaCarga: '2026-01-01', nombre: 'Auto.pdf', url: 'https://cpnu/Descarga/Documento/77' },
+      ]);
+      const { cookie: beto } = await iniciarSesion(app, BETO);
+
+      const res = await http().get('/api/procesos/1/actuaciones/5/documentos').set('Cookie', beto).expect(404);
+
+      expect(res.body).toEqual({ error: 'Proceso no encontrado.' });
+      expect(res.text).not.toContain('Auto.pdf');
+      expect(cpnu.calls).toEqual([]); // CPNU was never asked, so no actuator id is probeable
+
+      // The owner is still served: the 404 above is about ownership, not about the row.
+      const propio = await http()
+        .get('/api/procesos/1/actuaciones/5/documentos')
+        .set('Cookie', cookie)
+        .expect(200);
+      expect(propio.body).toHaveLength(1);
+    });
+  });
+
+  describe('cross-user boundary', () => {
+    it('lists and reports novedades only for the caller', async () => {
+      const beto = await asegurarUsuarioActivo(app.get(DataSource), BETO);
+      await sembrar({ actuaciones: [actuacion(1)], noVistas: [1] });
+      await procesos.insert(proceso('2', { usuarioId: beto, actuaciones: [actuacion(7)], noVistas: [7] }));
+      const { cookie: cookieBeto } = await iniciarSesion(app, BETO);
+
+      const listaAna = await http().get('/api/procesos').set('Cookie', cookie).expect(200);
+      const listaBeto = await http().get('/api/procesos').set('Cookie', cookieBeto).expect(200);
+
+      expect(listaAna.body.procesos.map((x: { idProceso: string }) => x.idProceso)).toEqual(['1']);
+      expect(listaBeto.body.procesos.map((x: { idProceso: string }) => x.idProceso)).toEqual(['2']);
+
+      const novedadesAna = await http().get('/api/novedades').set('Cookie', cookie).expect(200);
+      const novedadesBeto = await http().get('/api/novedades').set('Cookie', cookieBeto).expect(200);
+
+      expect(novedadesAna.body.map((x: { idProceso: string }) => x.idProceso)).toEqual(['1']);
+      expect(novedadesBeto.body.map((x: { idProceso: string }) => x.idProceso)).toEqual(['2']);
+    });
+
+    it.each([
+      ['get', '/api/procesos/1'],
+      ['patch', '/api/procesos/1'],
+      ['delete', '/api/procesos/1'],
+      ['post', '/api/procesos/1/visto'],
+      ['post', '/api/procesos/1/actualizar'],
+    ])('answers 404 (never 403) to %s %s of another user while the owner still gets 200', async (method, url) => {
+      await sembrar({ alias: 'Caso de Ana', tareas: [tarea('t1')], notas: [nota('n1')] });
+      const { cookie: beto } = await iniciarSesion(app, BETO);
+
+      const req = request(app.getHttpServer())[method as 'get'](url).set('Cookie', beto);
+      const res = await (method === 'patch' ? req.send({ alias: 'Secuestrado' }) : req).expect(404);
+
+      expect(res.body).toEqual({ error: 'Proceso no encontrado.' });
+      expect(await procesos.findById('1', ana)).toMatchObject({
+        alias: 'Caso de Ana',
+        notas: [nota('n1')],
+        tareas: [tarea('t1')],
+      });
+
+      // Without this the 404 above would also prove the row is missing, so it would be
+      // a "the process does not exist" test wearing an isolation test's name.
+      const own = request(app.getHttpServer())[method as 'get'](url).set('Cookie', cookie);
+      await (method === 'patch' ? own.send({ alias: 'Caso de Ana' }) : own).expect(200);
     });
   });
 
@@ -302,19 +401,19 @@ describe('Procesos API contract (e2e)', () => {
     });
 
     it('answers the estados where a private proceso was published, newest first', async () => {
-      await sembrar({ esPrivado: true, sujetosTexto: null });
+      const privado = await sembrar({ esPrivado: true, sujetosTexto: null });
       await estados.guardar(
         estadoProceso({
-          idProceso: '1',
+          procesoId: privado.id,
           urlEstado: 'https://portal.test/web/publicaciones-procesales/inicio?articleId=170',
           numeroEstado: '170',
           fechaPublicacion: '2026-10-01',
         }),
       );
-      await estados.guardar(estadoProceso({ idProceso: '1', visto: true }));
+      await estados.guardar(estadoProceso({ procesoId: privado.id, visto: true }));
       await estados.guardar(
         estadoProceso({
-          idProceso: '1',
+          procesoId: privado.id,
           urlEstado: 'https://portal.test/web/publicaciones-procesales/inicio?articleId=169',
           numeroEstado: '169',
           fechaPublicacion: null,
@@ -352,7 +451,7 @@ describe('Procesos API contract (e2e)', () => {
 
       expect(res.body).toMatchObject({ alias: 'x'.repeat(120), responsable: 'Ana', etiquetas: ['civil', 'laboral'] });
       expect(res.body.notas).toEqual([]);
-      expect(await procesos.findById('1')).toMatchObject({ alias: 'x'.repeat(120), responsable: 'Ana' });
+      expect(await procesos.findById('1', ana)).toMatchObject({ alias: 'x'.repeat(120), responsable: 'Ana' });
     });
 
     it('turns etiquetas null into [] (deliberate fix, never the tag "null") and keeps at most 10', async () => {
@@ -388,18 +487,19 @@ describe('Procesos API contract (e2e)', () => {
     });
 
     it('clears the estado detections of that proceso only, and twice changes nothing', async () => {
-      await sembrar();
-      await procesos.insert(proceso('2', { radicado: RADICADO }));
-      await estados.guardar(estadoProceso({ idProceso: '1' }));
-      await estados.guardar(estadoProceso({ idProceso: '2' }));
+      const uno = await sembrar();
+      const dos = proceso('2', { usuarioId: ana, radicado: RADICADO });
+      await procesos.insert(dos);
+      await estados.guardar(estadoProceso({ procesoId: uno.id }));
+      await estados.guardar(estadoProceso({ procesoId: dos.id }));
 
       await http().post('/api/procesos/1/visto').set('Cookie', cookie).expect(200);
       await http().post('/api/procesos/1/visto').set('Cookie', cookie).expect(200);
 
       const res = await http().get('/api/novedades').set('Cookie', cookie).expect(200);
       expect(res.body.map((i: { idProceso: string }) => i.idProceso)).toEqual(['2']);
-      expect(await estados.listarPorProceso('1')).toEqual([expect.objectContaining({ visto: true })]);
-      expect(await estados.listarPorProceso('2')).toEqual([expect.objectContaining({ visto: false })]);
+      expect(await estados.listarPorProceso(uno.id)).toEqual([expect.objectContaining({ visto: true })]);
+      expect(await estados.listarPorProceso(dos.id)).toEqual([expect.objectContaining({ visto: false })]);
     });
   });
 
@@ -412,7 +512,7 @@ describe('Procesos API contract (e2e)', () => {
       const res = await http().post('/api/procesos/1/actualizar').set('Cookie', cookie).expect(200);
 
       expect(res.body).toMatchObject({ idProceso: '1', noVistas: 1, instanciasNuevas: 1, error: null });
-      expect(await procesos.findById('2')).toMatchObject({ nuevaInstancia: true, alias: 'Caso (nueva instancia)' });
+      expect(await procesos.findById('2', ana)).toMatchObject({ nuevaInstancia: true, alias: 'Caso (nueva instancia)' });
     });
 
     it('records a CPNU failure in error and still answers 200', async () => {
@@ -432,7 +532,7 @@ describe('Procesos API contract (e2e)', () => {
       const res = await http().post('/api/procesos/1/actualizar').set('Cookie', cookie).expect(200);
       expect(res.body).toMatchObject({ idProceso: '1', esPrivado: true, error: null, instanciasNuevas: 0 });
       expect(cpnu.calls).not.toContain('load:1');
-      expect(await procesos.findById('1')).toMatchObject({ ultimaConsulta: null, error: null });
+      expect(await procesos.findById('1', ana)).toMatchObject({ ultimaConsulta: null, error: null });
     });
   });
 

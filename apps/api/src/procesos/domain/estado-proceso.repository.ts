@@ -6,7 +6,8 @@ export const ESTADO_PROCESO_REPOSITORY = Symbol('ESTADO_PROCESO_REPOSITORY');
  * office learns that a reserved case moved.
  */
 export interface EstadoProceso {
-  idProceso: string;
+  /** Surrogate `procesos.id`: each owner's copy of a case records its own detections. */
+  procesoId: string;
   /** Detail page of the estado; its identity within one proceso. */
   urlEstado: string;
   numeroEstado: string | null;
@@ -36,14 +37,14 @@ export interface EstadoProcesoRepository {
    */
   guardar(estado: EstadoProceso): Promise<boolean>;
   /** Detections of one proceso, newest estado first. */
-  listarPorProceso(idProceso: string): Promise<EstadoProceso[]>;
-  /** Unseen detections of every proceso (the estado novedades). */
-  listarNoVistos(): Promise<EstadoProceso[]>;
+  listarPorProceso(procesoId: string): Promise<EstadoProceso[]>;
+  /** Unseen detections of the given procesos (the estado novedades of one owner). */
+  listarNoVistos(procesoIds: string[]): Promise<EstadoProceso[]>;
   /**
-   * Unseen detections per proceso, keyed by `idProceso` (procesos without any are
+   * Unseen detections per proceso, keyed by `procesoId` (procesos without any are
    * absent). One grouped query, never one per proceso.
    */
   contarNoVistos(): Promise<Map<string, number>>;
   /** Marks every detection of one proceso as seen; idempotent. */
-  marcarVistos(idProceso: string): Promise<void>;
+  marcarVistos(procesoId: string): Promise<void>;
 }

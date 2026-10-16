@@ -133,11 +133,11 @@ export class EstadosService {
 
     const ahora = ahoraIso();
     let detecciones = 0;
-    for (const { idProceso, radicado } of refs) {
+    for (const { id, radicado } of refs) {
       const encontrado = porClave.get(claveCaso(radicado));
       if (!encontrado) continue;
       const fila: EstadoProceso = {
-        idProceso,
+        procesoId: id,
         urlEstado: estado.urlEstado,
         numeroEstado: numeroDelTitulo(estado.titulo),
         fechaPublicacion: estado.fechaPublicacion,

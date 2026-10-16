@@ -145,9 +145,9 @@ export function compararNovedades(a: { idProceso: string; fecha?: string | null 
 export function novedades(procesos: Proceso[], detecciones: EstadoProceso[]): Novedad[] {
   const porProceso = new Map<string, EstadoProceso[]>();
   for (const deteccion of detecciones) {
-    const grupo = porProceso.get(deteccion.idProceso);
+    const grupo = porProceso.get(deteccion.procesoId);
     if (grupo) grupo.push(deteccion);
-    else porProceso.set(deteccion.idProceso, [deteccion]);
+    else porProceso.set(deteccion.procesoId, [deteccion]);
   }
 
   const items: Novedad[] = [];
@@ -158,7 +158,7 @@ export function novedades(procesos: Proceso[], detecciones: EstadoProceso[]): No
     for (const a of p.actuaciones) {
       if (noVistas.has(a.id)) items.push({ ...base, tipo: 'actuacion', fecha: a.fecha, actuacion: a });
     }
-    for (const estado of porProceso.get(p.idProceso) ?? []) {
+    for (const estado of porProceso.get(p.id) ?? []) {
       items.push({ ...base, tipo: 'estado', fecha: estado.fechaPublicacion, estado });
     }
   }

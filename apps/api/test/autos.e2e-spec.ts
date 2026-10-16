@@ -4,9 +4,10 @@ import { DataSource } from 'typeorm';
 import { PortalBloqueadoError, PortalNoDisponibleError, type EstadoPublicado } from '../src/procesos/application/ports/publicaciones.port.js';
 import { AUTO_PUBLICADO_REPOSITORY, type AutoPublicadoRepository } from '../src/procesos/domain/auto-publicado.repository.js';
 import { PROCESO_REPOSITORY, type ProcesoRepository } from '../src/procesos/domain/proceso.repository.js';
+import type { Proceso } from '../src/procesos/domain/proceso.js';
 import { FakePublicaciones } from '../src/procesos/testing/fake-publicaciones.js';
 import { actuacion, proceso } from '../src/procesos/testing/proceso.fixtures.js';
-import { iniciarSesion } from './support/sesion.js';
+import { iniciarSesion, BETO } from './support/sesion.js';
 import { createTestApp } from './support/test-app.js';
 import { truncateAll } from './support/test-database.js';
 
@@ -29,6 +30,8 @@ describe('GET /api/procesos/:id/actuaciones/:actuacionId/auto (e2e)', () => {
   let procesos: ProcesoRepository;
   let autos: AutoPublicadoRepository;
   let cookie: string;
+  let ana: string;
+  let caso: Proceso;
 
   const get = (ruta = RUTA) => request(app.getHttpServer()).get(ruta).set('Cookie', cookie);
 
@@ -37,7 +40,6 @@ describe('GET /api/procesos/:id/actuaciones/:actuacionId/auto (e2e)', () => {
     app = await createTestApp({ publicaciones: portal });
     procesos = app.get(PROCESO_REPOSITORY);
     autos = app.get(AUTO_PUBLICADO_REPOSITORY);
-    cookie = await iniciarSesion(app);
   });
 
   afterAll(async () => {
@@ -49,16 +51,19 @@ describe('GET /api/procesos/:id/actuaciones/:actuacionId/auto (e2e)', () => {
     portal.estados.clear();
     portal.archivos.clear();
     portal.calls.length = 0;
-    await procesos.insert(
-      proceso('1', {
-        radicado: RADICADO,
-        actuaciones: [
-          actuacion(13, { actuacion: 'Recepción memorial', fecha: '2026-09-16T00:00:00' }),
-          actuacion(12, { actuacion: 'Fijación Estado', fecha: '2026-09-15T00:00:00' }),
-          actuacion(11, { actuacion: 'Auto Concede', fecha: '2026-09-14T00:00:00' }),
-        ],
-      }),
-    );
+    // The session is minted after the truncate: it empties `usuarios`, so a cookie from
+    // `beforeAll` would name a deleted user and the seeded proceso would belong to nobody.
+    ({ cookie, usuarioId: ana } = await iniciarSesion(app));
+    caso = proceso('1', {
+      usuarioId: ana,
+      radicado: RADICADO,
+      actuaciones: [
+        actuacion(13, { actuacion: 'Recepción memorial', fecha: '2026-09-16T00:00:00' }),
+        actuacion(12, { actuacion: 'Fijación Estado', fecha: '2026-09-15T00:00:00' }),
+        actuacion(11, { actuacion: 'Auto Concede', fecha: '2026-09-14T00:00:00' }),
+      ],
+    });
+    await procesos.insert(caso);
   });
 
   const conPdfExacto = () => {
@@ -72,6 +77,13 @@ describe('GET /api/procesos/:id/actuaciones/:actuacionId/auto (e2e)', () => {
   it('needs a session', async () => {
     const res = await request(app.getHttpServer()).get(RUTA).expect(401);
     expect(res.body).toEqual({ error: 'Inicia sesión.' });
+  });
+
+  it('answers 404 (never 403) on a proceso of another user, without searching the portal', async () => {
+    const { cookie: beto } = await iniciarSesion(app, BETO);
+    const res = await request(app.getHttpServer()).get(RUTA).set('Cookie', beto).expect(404);
+    expect(res.body).toEqual({ error: 'Proceso no encontrado.' });
+    expect(portal.calls).toEqual([]);
   });
 
   it('finds the exacto PDF in the estado of the fijación date and stores it', async () => {
@@ -93,7 +105,7 @@ describe('GET /api/procesos/:id/actuaciones/:actuacionId/auto (e2e)', () => {
     portal.calls.length = 0;
     await get().expect(200);
     expect(portal.calls).toEqual([]);
-    expect(await autos.buscar('1', 11)).toMatchObject({ confianza: 'exacto', intentos: 1 });
+    expect(await autos.buscar(caso.id, 11)).toMatchObject({ confianza: 'exacto', intentos: 1 });
   });
 
   it('links to the closest estado when no PDF is identified', async () => {
@@ -120,7 +132,7 @@ describe('GET /api/procesos/:id/actuaciones/:actuacionId/auto (e2e)', () => {
   it('searches an old unresolved result again and counts the attempt', async () => {
     await autos.guardar({
       ...(await get().expect(200)).body,
-      idProceso: '1',
+      procesoId: caso.id,
       idActuacion: 11,
       buscadoEn: '2026-01-01T00:00:00.000Z',
       intentos: 2,
@@ -128,7 +140,7 @@ describe('GET /api/procesos/:id/actuaciones/:actuacionId/auto (e2e)', () => {
     conPdfExacto();
     const res = await get().expect(200);
     expect(res.body.confianza).toBe('exacto');
-    expect(await autos.buscar('1', 11)).toMatchObject({ confianza: 'exacto', intentos: 3 });
+    expect(await autos.buscar(caso.id, 11)).toMatchObject({ confianza: 'exacto', intentos: 3 });
   });
 
   it.each([
@@ -138,12 +150,12 @@ describe('GET /api/procesos/:id/actuaciones/:actuacionId/auto (e2e)', () => {
     portal.estados.set(DESPACHO, error);
     const res = await get().expect(503);
     expect(res.body).toEqual({ error: mensaje });
-    expect(await autos.buscar('1', 11)).toBeNull();
+    expect(await autos.buscar(caso.id, 11)).toBeNull();
   });
 
   it('keeps answering the stored result when a new search fails', async () => {
     await autos.guardar({
-      idProceso: '1',
+      procesoId: caso.id,
       idActuacion: 11,
       confianza: 'estado',
       urlPdf: null,
@@ -157,7 +169,7 @@ describe('GET /api/procesos/:id/actuaciones/:actuacionId/auto (e2e)', () => {
     portal.estados.set(DESPACHO, new PortalBloqueadoError());
     const res = await get().expect(200);
     expect(res.body.confianza).toBe('estado');
-    expect(await autos.buscar('1', 11)).toMatchObject({ intentos: 1 });
+    expect(await autos.buscar(caso.id, 11)).toMatchObject({ intentos: 1 });
   });
 
   it.each([

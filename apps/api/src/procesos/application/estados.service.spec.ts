@@ -47,11 +47,13 @@ const estado = (url = URL_ESTADO, titulo = TITULO): EstadoPublicado => ({
 
 describe('EstadosService', () => {
   let portal: FakePublicaciones;
+  /** Surrogate key of the private caso: detections hang from it, not from the CPNU id. */
+  const ID_PRIVADO = '5b8e2f64-1c3a-4d7e-9a0b-2c4d6e8f0a1b';
   let estadoRepo: InMemoryEstadoProcesoRepository;
   let meta: InMemoryMetaRepository;
   let servicio: EstadosService;
 
-  function montar(privados: Proceso[] = [proceso('7', { radicado: PRIVADO, esPrivado: true })]) {
+  function montar(privados: Proceso[] = [proceso('7', { id: ID_PRIVADO, radicado: PRIVADO, esPrivado: true })]) {
     portal = new FakePublicaciones();
     estadoRepo = new InMemoryEstadoProcesoRepository();
     meta = new InMemoryMetaRepository();
@@ -72,7 +74,7 @@ describe('EstadosService', () => {
     const resumen = await servicio.revisar();
 
     expect(resumen).toEqual({ despachos: 1, estados: 1, detecciones: 1, ilegibles: 0, sinListado: 0 });
-    expect(await estadoRepo.listarPorProceso('7')).toEqual([
+    expect(await estadoRepo.listarPorProceso(ID_PRIVADO)).toEqual([
       expect.objectContaining({
         urlEstado: URL_ESTADO,
         numeroEstado: '174',
@@ -87,7 +89,7 @@ describe('EstadosService', () => {
     const resumen = await servicio.revisar();
 
     expect(resumen.detecciones).toBe(1);
-    expect((await estadoRepo.listarPorProceso('7')).at(0)?.radicadoEncontrado).toBe(CON_RECURSO);
+    expect((await estadoRepo.listarPorProceso(ID_PRIVADO)).at(0)?.radicadoEncontrado).toBe(CON_RECURSO);
   });
 
   it('counts a LISTADO without radicados as unreadable and records nothing', async () => {
@@ -131,7 +133,7 @@ describe('EstadosService', () => {
     await servicio.revisar();
 
     expect(estadoRepo.filas.size).toBe(1);
-    expect(await estadoRepo.listarPorProceso('7')).toHaveLength(1);
+    expect(await estadoRepo.listarPorProceso(ID_PRIVADO)).toHaveLength(1);
   });
 
   it('searches 30 days back on the first run, then from the last run minus a day', async () => {

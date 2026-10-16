@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AUTH_SECRET } from '../../auth/application/auth.service.js';
+import type { SessionUser } from '../../auth/domain/session.js';
 import { safeEqual } from '../../common/security/safe-equal.js';
 import { hoyBogota } from '../../procesos/domain/bogota-time.js';
 import { PROCESO_REPOSITORY, type ProcesoRepository } from '../../procesos/domain/proceso.repository.js';
@@ -24,23 +25,22 @@ export class AgendaService {
   ) {}
 
   /** `origen` is the public origin (scheme and host) used to build the calendar link. */
-  async agenda(origen: string): Promise<AgendaVista> {
+  async agenda(usuario: SessionUser, origen: string): Promise<AgendaVista> {
     return {
-      tareas: tareasAgenda(await this.procesos.findAll()),
+      tareas: tareasAgenda(await this.procesos.findAll(usuario.id)),
       hoy: hoyBogota(),
-      ics: `${origen}/api/agenda.ics?t=${this.token()}`,
+      ics: `${origen}/api/agenda.ics?t=${tokenAgenda(this.secret, usuario.id)}`,
     };
   }
 
-  enlaceValido(token: unknown): boolean {
-    return safeEqual(token, this.token());
+  /** The user a subscription link belongs to, or `null` when it does not verify. */
+  usuarioDelToken(token: unknown): string | null {
+    if (typeof token !== 'string') return null;
+    const usuarioId = token.slice(0, token.lastIndexOf('.'));
+    return usuarioId && safeEqual(token, tokenAgenda(this.secret, usuarioId)) ? usuarioId : null;
   }
 
-  async calendario(): Promise<string> {
-    return generarIcs(await this.procesos.findAll(), Temporal.Now.instant());
-  }
-
-  private token(): string {
-    return tokenAgenda(this.secret);
+  async calendario(usuarioId: string): Promise<string> {
+    return generarIcs(await this.procesos.findAll(usuarioId), Temporal.Now.instant());
   }
 }

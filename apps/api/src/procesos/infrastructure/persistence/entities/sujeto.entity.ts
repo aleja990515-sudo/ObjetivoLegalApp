@@ -3,8 +3,9 @@ import { ProcesoEntity } from './proceso.entity.js';
 
 @Entity('sujetos')
 export class SujetoEntity {
-  @PrimaryColumn({ name: 'id_proceso', type: 'text' })
-  idProceso: string;
+  /** Surrogate `procesos.id`, not the CPNU `id_proceso`. */
+  @PrimaryColumn({ name: 'id_proceso', type: 'uuid' })
+  procesoId: string;
 
   /** Position in the CPNU list. */
   @PrimaryColumn({ type: 'integer' })

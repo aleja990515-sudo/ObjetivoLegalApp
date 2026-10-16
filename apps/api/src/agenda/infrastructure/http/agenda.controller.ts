@@ -1,6 +1,8 @@
 import { All, Controller, Get, Query, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Public } from '../../../auth/infrastructure/http/public.decorator.js';
+import { CurrentUser } from '../../../auth/infrastructure/http/current-user.decorator.js';
+import type { SessionUser } from '../../../auth/domain/session.js';
 import { ApiError } from '../../../common/http/api-error.js';
 import { AgendaService, type AgendaVista } from '../../application/agenda.service.js';
 
@@ -23,8 +25,8 @@ export class AgendaController {
   constructor(private readonly agenda: AgendaService) {}
 
   @Get('agenda')
-  listar(@Req() req: Request): Promise<AgendaVista> {
-    return this.agenda.agenda(origenDe(req));
+  listar(@Req() req: Request, @CurrentUser() usuario: SessionUser): Promise<AgendaVista> {
+    return this.agenda.agenda(usuario, origenDe(req));
   }
 
   /** Public: calendar clients send no cookies, so the token in the query string is the credential. */
@@ -32,9 +34,11 @@ export class AgendaController {
   @All('agenda.ics')
   async calendario(@Query('t') token: unknown, @Res() res: Response): Promise<void> {
     res.setHeader('Cache-Control', 'no-store');
-    if (!this.agenda.enlaceValido(token)) throw new ApiError(401, ENLACE_CALENDARIO_INVALIDO);
+    // The signature is verified before any read, so a forged link reads nothing.
+    const usuarioId = this.agenda.usuarioDelToken(token);
+    if (!usuarioId) throw new ApiError(401, ENLACE_CALENDARIO_INVALIDO);
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', 'inline; filename="mis-procesos.ics"');
-    res.status(200).end(await this.agenda.calendario());
+    res.status(200).end(await this.agenda.calendario(usuarioId));
   }
 }

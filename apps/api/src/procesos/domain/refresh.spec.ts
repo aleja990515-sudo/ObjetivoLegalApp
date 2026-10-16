@@ -102,9 +102,11 @@ describe('newProceso', () => {
   };
 
   it('builds an empty proceso like the legacy nuevoProceso', () => {
-    expect(newProceso(found, '11001310300120190012300', 'Ana', NOW)).toEqual({
+    expect(newProceso(found, '11001310300120190012300', 'Ana', 'u-ana', NOW)).toEqual({
+      id: expect.any(String),
       idProceso: '123',
       radicado: '11001310300120190012300',
+      usuarioId: 'u-ana',
       alias: '',
       despacho: 'JUZGADO 1',
       sujetosTexto: 'A | B',
@@ -126,7 +128,15 @@ describe('newProceso', () => {
   });
 
   it('applies extra fields', () => {
-    expect(newProceso(found, 'r', 'Ana', NOW, { alias: 'Caso' }).alias).toBe('Caso');
+    expect(newProceso(found, 'r', 'Ana', 'u-ana', NOW, { alias: 'Caso' }).alias).toBe('Caso');
+  });
+
+  it('mints a different surrogate for every copy of the same expediente', () => {
+    const uno = newProceso(found, '11001310300120190012300', 'Ana', 'u-ana', NOW);
+    const otro = newProceso(found, '11001310300120190012300', 'Beto', 'u-beto', NOW);
+    expect(uno.idProceso).toBe(otro.idProceso);
+    expect(uno.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    expect(uno.id).not.toBe(otro.id);
   });
 
   it('carries esPrivado and drops CPNU placeholder parties for a private proceso', () => {
@@ -134,6 +144,7 @@ describe('newProceso', () => {
       { ...found, esPrivado: true, sujetosProcesales: '--- [ PROCESO PRIVADO ] ---' },
       'r',
       'Ana',
+      null,
       NOW,
     );
     expect(privado).toMatchObject({ esPrivado: true, sujetosTexto: null, despacho: 'JUZGADO 1' });
@@ -153,6 +164,7 @@ describe('newInstance', () => {
     expect(newInstance(found, base.radicado, base, NOW)).toMatchObject({
       idProceso: '900',
       radicado: base.radicado,
+      usuarioId: base.usuarioId,
       alias: 'Caso A (nueva instancia)',
       responsable: 'Luis',
       etiquetas: ['civil'],
@@ -160,6 +172,11 @@ describe('newInstance', () => {
       agregadoPor: 'Revisión automática',
       agregado: NOW,
     });
+  });
+
+  it('leaves the owner empty when the base has none (or there is no base)', () => {
+    expect(newInstance(found, 'r', proceso('1', { usuarioId: null }), NOW).usuarioId).toBeNull();
+    expect(newInstance(found, 'r', null, NOW).usuarioId).toBeNull();
   });
 
   it('leaves the alias empty when the base has none (or there is no base)', () => {

@@ -55,7 +55,7 @@ export function Actuaciones({ proceso: p, onAgendar, onAviso }: Props) {
     const clave = String(actuacion.id);
     setDocumentos((previo) => ({ ...previo, [clave]: { estado: 'cargando' } }));
     try {
-      const docs = await apiFetch<DocumentoActuacion[]>(`/actuaciones/${actuacion.id}/documentos`);
+      const docs = await apiFetch<DocumentoActuacion[]>(`/procesos/${encodeURIComponent(p.idProceso)}/actuaciones/${actuacion.id}/documentos`);
       setDocumentos((previo) => ({ ...previo, [clave]: { estado: 'lista', docs } }));
     } catch (fallo) {
       const mensaje = fallo instanceof ApiError ? fallo.message : 'No se pudieron cargar los documentos.';

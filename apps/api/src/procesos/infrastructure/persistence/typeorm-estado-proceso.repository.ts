@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, QueryFailedError } from 'typeorm';
+import { DataSource, In, QueryFailedError } from 'typeorm';
 import { isoMs } from '../../../common/time/temporal.js';
 import type { EstadoProceso, EstadoProcesoRepository } from '../../domain/estado-proceso.repository.js';
 import { EstadosProcesoEntity } from './entities/index.js';
@@ -35,17 +35,18 @@ export class TypeOrmEstadoProcesoRepository implements EstadoProcesoRepository {
     }
   }
 
-  async listarPorProceso(idProceso: string): Promise<EstadoProceso[]> {
+  async listarPorProceso(procesoId: string): Promise<EstadoProceso[]> {
     const rows = await this.dataSource.manager.find(EstadosProcesoEntity, {
-      where: { idProceso },
+      where: { procesoId },
       order: { fechaPublicacion: { direction: 'DESC', nulls: 'LAST' }, urlEstado: 'ASC' },
     });
     return rows.map(toDomain);
   }
 
-  async listarNoVistos(): Promise<EstadoProceso[]> {
+  async listarNoVistos(procesoIds: string[]): Promise<EstadoProceso[]> {
+    if (!procesoIds.length) return [];
     const rows = await this.dataSource.manager.find(EstadosProcesoEntity, {
-      where: { visto: false },
+      where: { procesoId: In(procesoIds), visto: false },
       order: { fechaPublicacion: { direction: 'DESC', nulls: 'LAST' }, urlEstado: 'ASC' },
     });
     return rows.map(toDomain);
@@ -54,22 +55,22 @@ export class TypeOrmEstadoProcesoRepository implements EstadoProcesoRepository {
   async contarNoVistos(): Promise<Map<string, number>> {
     const filas = await this.dataSource.manager
       .createQueryBuilder(EstadosProcesoEntity, 'estado')
-      .select('estado.idProceso', 'idProceso')
+      .select('estado.procesoId', 'procesoId')
       .addSelect('COUNT(*)', 'total')
       .where('estado.visto = false')
-      .groupBy('estado.idProceso')
-      .getRawMany<{ idProceso: string; total: string }>();
-    return new Map(filas.map((fila) => [fila.idProceso, Number(fila.total)]));
+      .groupBy('estado.procesoId')
+      .getRawMany<{ procesoId: string; total: string }>();
+    return new Map(filas.map((fila) => [fila.procesoId, Number(fila.total)]));
   }
 
-  async marcarVistos(idProceso: string): Promise<void> {
-    await this.dataSource.manager.update(EstadosProcesoEntity, { idProceso, visto: false }, { visto: true });
+  async marcarVistos(procesoId: string): Promise<void> {
+    await this.dataSource.manager.update(EstadosProcesoEntity, { procesoId, visto: false }, { visto: true });
   }
 }
 
 function toDomain(row: EstadosProcesoEntity): EstadoProceso {
   return {
-    idProceso: row.idProceso,
+    procesoId: row.procesoId,
     urlEstado: row.urlEstado,
     numeroEstado: row.numeroEstado,
     fechaPublicacion: row.fechaPublicacion,
@@ -81,7 +82,7 @@ function toDomain(row: EstadosProcesoEntity): EstadoProceso {
 
 function toEntity(estado: EstadoProceso): EstadosProcesoEntity {
   const row = new EstadosProcesoEntity();
-  row.idProceso = estado.idProceso;
+  row.procesoId = estado.procesoId;
   row.urlEstado = estado.urlEstado;
   row.numeroEstado = estado.numeroEstado;
   row.fechaPublicacion = estado.fechaPublicacion;

@@ -11,14 +11,14 @@ const FOREIGN_KEY_VIOLATION = '23503';
 export class TypeOrmAutoPublicadoRepository implements AutoPublicadoRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  async buscar(idProceso: string, idActuacion: number): Promise<AutoPublicado | null> {
-    const row = await this.dataSource.manager.findOneBy(AutoPublicadoEntity, { idProceso, idActuacion });
+  async buscar(procesoId: string, idActuacion: number): Promise<AutoPublicado | null> {
+    const row = await this.dataSource.manager.findOneBy(AutoPublicadoEntity, { procesoId, idActuacion });
     return row ? toDomain(row) : null;
   }
 
   async guardar(auto: AutoPublicado): Promise<boolean> {
     try {
-      await this.dataSource.manager.upsert(AutoPublicadoEntity, toEntity(auto), ['idProceso', 'idActuacion']);
+      await this.dataSource.manager.upsert(AutoPublicadoEntity, toEntity(auto), ['procesoId', 'idActuacion']);
       return true;
     } catch (error) {
       // The proceso was deleted while the portal was searched.
@@ -32,7 +32,7 @@ export class TypeOrmAutoPublicadoRepository implements AutoPublicadoRepository {
 
 function toDomain(row: AutoPublicadoEntity): AutoPublicado {
   return {
-    idProceso: row.idProceso,
+    procesoId: row.procesoId,
     idActuacion: row.idActuacion,
     confianza: row.confianza,
     urlPdf: row.urlPdf,
@@ -47,7 +47,7 @@ function toDomain(row: AutoPublicadoEntity): AutoPublicado {
 
 function toEntity(auto: AutoPublicado): AutoPublicadoEntity {
   const row = new AutoPublicadoEntity();
-  row.idProceso = auto.idProceso;
+  row.procesoId = auto.procesoId;
   row.idActuacion = auto.idActuacion;
   row.confianza = auto.confianza;
   row.urlPdf = auto.urlPdf;

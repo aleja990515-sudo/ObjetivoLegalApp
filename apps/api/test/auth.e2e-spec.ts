@@ -18,7 +18,7 @@ describe('Auth (e2e)', () => {
 
   beforeEach(async () => {
     await truncateAll(app.get(DataSource));
-    await asegurarUsuarioActivo(app);
+    await asegurarUsuarioActivo(app.get(DataSource));
     sleep.mockClear();
   });
 
@@ -66,7 +66,7 @@ describe('Auth (e2e)', () => {
   });
 
   it('answers /yo with the session user for any method', async () => {
-    const cookie = await iniciarSesion(app);
+    const { cookie } = await iniciarSesion(app);
     for (const method of ['get', 'post', 'put'] as const) {
       const res = await request(app.getHttpServer())[method]('/api/yo').set('Cookie', cookie).expect(200);
       expect(res.body).toEqual({ nombre: 'Ana' });
@@ -85,7 +85,7 @@ describe('Auth (e2e)', () => {
   });
 
   it('checks the session before routing, like the legacy API', async () => {
-    const cookie = await iniciarSesion(app);
+    const { cookie } = await iniciarSesion(app);
     const anonymous = await request(app.getHttpServer()).get('/api/no-existe').expect(401);
     expect(anonymous.body).toEqual({ error: 'Inicia sesión.' });
     const logged = await request(app.getHttpServer()).get('/api/no-existe').set('Cookie', cookie).expect(404);

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { ProcesoCargado, ProcesoEncontrado } from './cpnu-data.js';
 import type { Proceso, ProcesoCpnuState } from './proceso.js';
 
@@ -39,17 +40,24 @@ export function applyRefreshError(current: ProcesoCpnuState, message: string): P
   return { ...current, error: message };
 }
 
-/** Empty proceso for a CPNU search result (legacy `nuevoProceso`). */
+/**
+ * Empty proceso for a CPNU search result (legacy `nuevoProceso`). The surrogate
+ * `id` is minted here, so a detected instance already carries its own key and
+ * never collides with the copy of another user following the same expediente.
+ */
 export function newProceso(
   found: ProcesoEncontrado,
   radicado: string,
   agregadoPor: string,
+  usuarioId: string | null,
   now: string,
   extra: Partial<Proceso> = {},
 ): Proceso {
   return {
+    id: randomUUID(),
     idProceso: String(found.idProceso),
     radicado,
+    usuarioId,
     alias: '',
     despacho: found.despacho,
     // CPNU hides the parties of a private proceso (it answers a placeholder string).
@@ -77,7 +85,7 @@ export function newProceso(
  * the tribunal). It inherits the office data of the followed instance.
  */
 export function newInstance(found: ProcesoEncontrado, radicado: string, base: Proceso | null, now: string): Proceso {
-  return newProceso(found, radicado, AUTOMATIC_REVIEW_AUTHOR, now, {
+  return newProceso(found, radicado, AUTOMATIC_REVIEW_AUTHOR, base?.usuarioId ?? null, now, {
     alias: base?.alias ? `${base.alias}${NEW_INSTANCE_SUFFIX}` : '',
     responsable: base?.responsable || '',
     etiquetas: [...(base?.etiquetas ?? [])],
