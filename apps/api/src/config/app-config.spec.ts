@@ -12,6 +12,7 @@ describe('loadAppConfig', () => {
       dataEncryptionKey: null,
       cronSecret: null,
       revisionCron: '0 11 * * *',
+      estadosCron: '0 */6 * * *',
       database: { url: base.DATABASE_URL, caCert: null, poolMax: 5, migrationsRun: true },
     });
   });
@@ -42,6 +43,16 @@ describe('loadAppConfig', () => {
 
   it('rejects malformed cron expressions', () => {
     expect(() => loadAppConfig({ ...base, REVISION_CRON: 'every day' })).toThrow(/REVISION_CRON/);
+  });
+
+  it('disables the estados cron with "off"', () => {
+    expect(loadAppConfig({ ...base, ESTADOS_CRON: 'off' }).estadosCron).toBeNull();
+    expect(loadAppConfig({ ...base, ESTADOS_CRON: 'OFF' }).estadosCron).toBeNull();
+    expect(loadAppConfig({ ...base, ESTADOS_CRON: '0 3 * * *' }).estadosCron).toBe('0 3 * * *');
+  });
+
+  it('rejects a malformed ESTADOS_CRON', () => {
+    expect(() => loadAppConfig({ ...base, ESTADOS_CRON: 'cada seis horas' })).toThrow(/ESTADOS_CRON/);
   });
 
   it('treats an empty CRON_SECRET as unset', () => {

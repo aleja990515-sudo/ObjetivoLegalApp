@@ -3,6 +3,9 @@
 
 export const DEFAULT_REVISION_CRON = '0 11 * * *';
 
+/** Default of `ESTADOS_CRON`: every 6 hours (UTC). */
+export const DEFAULT_ESTADOS_CRON = '0 */6 * * *';
+
 export interface DatabaseConfig {
   url: string;
   /** PEM content of the server CA; enables verified TLS when present. */
@@ -28,6 +31,8 @@ export interface AppConfig {
   cronSecret: string | null;
   /** Cron expression (UTC) for the automatic review, or `null` when disabled. */
   revisionCron: string | null;
+  /** Cron expression (UTC) for the estados sweep, or `null` when disabled. */
+  estadosCron: string | null;
   /** Set by Vercel: Secure cookie and the client IP taken from `x-forwarded-for`. */
   vercel: boolean;
   vercelRegion: string | null;
@@ -92,6 +97,12 @@ export function loadAppConfig(env: Env): AppConfig {
     errors.push('REVISION_CRON must be a cron expression or "off"');
   }
 
+  const estadosRaw = blank(env.ESTADOS_CRON) ?? DEFAULT_ESTADOS_CRON;
+  const estadosCron = estadosRaw.toLowerCase() === 'off' ? null : estadosRaw;
+  if (estadosCron !== null && !CRON_SHAPE.test(estadosCron)) {
+    errors.push('ESTADOS_CRON must be a cron expression or "off"');
+  }
+
   const dataKey = blank(env.DATA_ENCRYPTION_KEY);
   if (dataKey !== null && !isDataKey(dataKey)) {
     errors.push('DATA_ENCRYPTION_KEY must be 32 random bytes in base64');
@@ -116,6 +127,7 @@ export function loadAppConfig(env: Env): AppConfig {
     sessionSecret: sessionSecret ?? '',
     cronSecret: env.CRON_SECRET || null,
     revisionCron,
+    estadosCron,
     vercel: Boolean(env.VERCEL),
     vercelRegion: blank(env.VERCEL_REGION),
   };

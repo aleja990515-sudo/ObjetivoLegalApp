@@ -16,6 +16,9 @@ export interface ProcesoRepository {
   findById(idProceso: string): Promise<Proceso | null>;
   listRefs(): Promise<ProcesoRef[]>;
 
+  /** Refs of the reserved procesos (`esPrivado`), which CPNU cannot refresh. */
+  listPrivados(): Promise<ProcesoRef[]>;
+
   /** Inserts a new proceso with its children. Returns `false` when the id already exists. */
   insert(proceso: Proceso): Promise<boolean>;
   /** Returns `false` when the proceso did not exist. */

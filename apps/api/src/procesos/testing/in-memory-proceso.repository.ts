@@ -34,6 +34,12 @@ export class InMemoryProcesoRepository implements ProcesoRepository {
     return [...this.procesos.values()].map(({ idProceso, radicado }) => ({ idProceso, radicado }));
   }
 
+  async listPrivados(): Promise<ProcesoRef[]> {
+    return [...this.procesos.values()]
+      .filter((p) => p.esPrivado)
+      .map(({ idProceso, radicado }) => ({ idProceso, radicado }));
+  }
+
   async insert(proceso: Proceso): Promise<boolean> {
     if (this.procesos.has(proceso.idProceso)) return false;
     this.procesos.set(proceso.idProceso, clone(proceso));
