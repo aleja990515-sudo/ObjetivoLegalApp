@@ -17,6 +17,8 @@ function proceso(parcial: Partial<ProcesoResumen> & Pick<ProcesoResumen, 'idProc
     ultimaActuacion: null,
     ultimoAuto: null,
     noVistas: 0,
+    esPrivado: false,
+    estadosNoVistos: 0,
     nuevaInstancia: false,
     proximaTarea: null,
     tareasVencidas: 0,
@@ -113,5 +115,15 @@ describe('VistaLista', () => {
     for (const columna of ['Proceso', 'Despacho', 'Última actuación', 'Estado']) {
       expect(screen.getByRole('columnheader', { name: columna })).toBeInTheDocument();
     }
+  });
+
+  it('muestra los estados sin ver de un proceso privado y lo cuenta como novedad', async () => {
+    const privado = proceso({ idProceso: '3', alias: 'Reservado', esPrivado: true, estadosNoVistos: 2 });
+    stubApi({ '/api/procesos': { body: { procesos: [privado], ultimaRevision: null } } });
+    render(<VistaLista />);
+
+    expect(await screen.findByText('2 estado(s) nuevo(s)')).toBeInTheDocument();
+    expect(screen.getByText('Privado en la Rama, vigilado por estados')).toBeInTheDocument();
+    expect(screen.queryByText('Al día')).not.toBeInTheDocument();
   });
 });

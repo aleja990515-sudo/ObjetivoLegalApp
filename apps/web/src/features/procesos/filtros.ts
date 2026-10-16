@@ -14,7 +14,7 @@ export interface FiltroLista {
 export function filtrarProcesos(procesos: ProcesoResumen[], filtro: FiltroLista): ProcesoResumen[] {
   const texto = filtro.texto.trim().toLowerCase();
   return procesos.filter((p) => {
-    if (filtro.soloNuevas && !(p.noVistas > 0 || p.nuevaInstancia)) return false;
+    if (filtro.soloNuevas && !(p.noVistas > 0 || p.estadosNoVistos > 0 || p.nuevaInstancia)) return false;
     if (filtro.responsable === SIN_RESPONSABLE && p.responsable) return false;
     if (filtro.responsable && filtro.responsable !== SIN_RESPONSABLE && p.responsable !== filtro.responsable) return false;
     if (!texto) return true;

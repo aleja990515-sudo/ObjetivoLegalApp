@@ -14,7 +14,7 @@ import { ApiError, apiFetch } from '@/lib/api';
 
 type Estado = { tipo: 'cargando' } | { tipo: 'lista'; novedades: Novedad[] } | { tipo: 'error'; mensaje: string };
 
-/** Novedades: actuaciones sin revisar y nuevas instancias de todos los procesos. */
+/** Novedades: actuaciones, estados y nuevas instancias de todos los procesos. */
 export function VistaNovedades() {
   const [estado, setEstado] = useState<Estado>({ tipo: 'cargando' });
 
@@ -35,7 +35,7 @@ export function VistaNovedades() {
   }, []);
 
   const descripcion =
-    estado.tipo === 'lista' ? `${estado.novedades.length} novedad(es) sin revisar` : 'Actuaciones nuevas y nuevas instancias';
+    estado.tipo === 'lista' ? `${estado.novedades.length} novedad(es) sin revisar` : 'Actuaciones, estados y nuevas instancias';
 
   return (
     <>
@@ -70,10 +70,21 @@ function TarjetaNovedad({ novedad: n }: { novedad: Novedad }) {
     <li className="relative rounded-lg border border-line bg-card p-4 hover:bg-surface-sunken focus-within:bg-surface-sunken">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <FilaEnlazada href={`/procesos/${n.idProceso}`}>{nombre}</FilaEnlazada>
-        {esInstancia ? <Badge>Nueva instancia</Badge> : <Badge variant={providencia ? 'default' : 'secondary'}>{providencia ? 'Auto / providencia' : 'Actuación'}</Badge>}
+        {n.tipo === 'estado' ? (
+          <Badge>Estado</Badge>
+        ) : esInstancia ? (
+          <Badge>Nueva instancia</Badge>
+        ) : (
+          <Badge variant={providencia ? 'default' : 'secondary'}>{providencia ? 'Auto / providencia' : 'Actuación'}</Badge>
+        )}
       </div>
       <p className="m-0 mt-1 font-mono text-xs text-muted-foreground tabular-nums">{fmtRadicado(n.radicado)}</p>
-      {esInstancia ? (
+      {n.tipo === 'estado' ? (
+        <p className="m-0 mt-2 text-sm">
+          Apareció en el Estado No. {n.estado.numeroEstado ?? 'sin número'}
+          {n.estado.fechaPublicacion ? `, publicado ${fecha(n.estado.fechaPublicacion)}` : ''}.
+        </p>
+      ) : esInstancia ? (
         <p className="m-0 mt-2 text-sm">El proceso apareció en un nuevo despacho: {n.despacho || 'sin despacho informado'}.</p>
       ) : (
         <div className="mt-2 grid gap-1 text-sm">

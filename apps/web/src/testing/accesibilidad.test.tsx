@@ -24,6 +24,8 @@ const resumen: ProcesoResumen = {
   ultimaActuacion: null,
   ultimoAuto: null,
   noVistas: 2,
+  esPrivado: false,
+  estadosNoVistos: 0,
   nuevaInstancia: false,
   proximaTarea: null,
   tareasVencidas: 1,
@@ -52,6 +54,7 @@ const detalle: ProcesoDetalle = {
     },
   ],
   noVistasIds: [5],
+  estados: [],
   notas: [{ id: 'n1', texto: 'Llamar al cliente', autor: 'Ana', fecha: '2026-10-08T12:00:00.000Z' }],
   tareas: [
     {

@@ -22,7 +22,7 @@ export function FilaProceso({ proceso: p, hoy }: Props) {
   const ultima = p.ultimaActuacion;
   const tarea = p.proximaTarea;
   const vencida = tarea !== null && tarea.fecha < hoy;
-  const hayNovedad = p.noVistas > 0 || p.nuevaInstancia;
+  const hayNovedad = p.noVistas > 0 || p.estadosNoVistos > 0 || p.nuevaInstancia;
 
   return (
     <tr
@@ -49,6 +49,8 @@ export function FilaProceso({ proceso: p, hoy }: Props) {
             <span className="tabular-nums">{fecha(ultima.fecha)}</span>
             <span className="text-muted-foreground"> · {ultima.actuacion}</span>
           </>
+        ) : p.esPrivado ? (
+          <span className="text-muted-foreground">Privado en la Rama, vigilado por estados</span>
         ) : (
           <span className="text-muted-foreground">Sin actuaciones registradas</span>
         )}
@@ -59,6 +61,7 @@ export function FilaProceso({ proceso: p, hoy }: Props) {
         <div className="flex flex-wrap gap-1.5">
           {p.nuevaInstancia && <Badge>Nueva instancia</Badge>}
           {p.noVistas > 0 && <Badge>{p.noVistas} nueva(s)</Badge>}
+          {p.estadosNoVistos > 0 && <Badge>{p.estadosNoVistos} estado(s) nuevo(s)</Badge>}
           {p.tareasVencidas > 0 && <Badge variant="destructive">{p.tareasVencidas} vencida(s)</Badge>}
           {!hayNovedad && p.tareasVencidas === 0 && <span className="self-center text-muted-foreground">Al día</span>}
         </div>

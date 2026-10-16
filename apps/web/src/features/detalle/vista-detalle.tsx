@@ -12,6 +12,7 @@ import { ApiError, apiFetch } from '@/lib/api';
 import { Actuaciones } from './actuaciones';
 import { CabeceraProceso } from './cabecera-proceso';
 import { EnlaceVolver } from './enlace-volver';
+import { EstadosDetectados } from './estados-detectados';
 import { Notas } from './notas';
 import { Tareas, type Borrador } from './tareas';
 import type { Ejecutar } from './tipos';
@@ -92,23 +93,36 @@ export function VistaDetalle({ id }: { id: string }) {
 
       <Notas proceso={proceso} ocupado={ocupado} ejecutar={ejecutar} />
 
-      <section aria-labelledby="titulo-sujetos" className="grid gap-3">
-        <TituloSeccion id="titulo-sujetos" titulo="Sujetos procesales" icono={UserCircle} />
-        <ul className="m-0 grid list-none gap-1.5 p-0 text-sm">
-          {proceso.sujetos.length === 0 ? (
-            <li className="text-muted-foreground">Sin información</li>
-          ) : (
-            proceso.sujetos.map((s, i) => (
-              <li key={`${s.nombre}-${i}`}>
-                {s.tipo && <strong className="font-medium">{s.tipo}: </strong>}
-                {s.nombre}
-              </li>
-            ))
-          )}
-        </ul>
-      </section>
+      {proceso.esPrivado ? (
+        <p className="m-0 rounded-lg border border-line bg-card p-4 text-sm">
+          Este proceso es privado en la Rama Judicial: no se pueden ver sus actuaciones ni sus sujetos. La aplicación revisa los estados del
+          juzgado y muestra aquí los que lo mencionan.
+        </p>
+      ) : null}
 
-      <Actuaciones proceso={proceso} onAgendar={agendar} onAviso={(texto) => setAviso({ tipo: 'ok', texto })} />
+      <EstadosDetectados estados={proceso.estados} privado={proceso.esPrivado} />
+
+      {!proceso.esPrivado && (
+        <>
+        <section aria-labelledby="titulo-sujetos" className="grid gap-3">
+          <TituloSeccion id="titulo-sujetos" titulo="Sujetos procesales" icono={UserCircle} />
+          <ul className="m-0 grid list-none gap-1.5 p-0 text-sm">
+            {proceso.sujetos.length === 0 ? (
+              <li className="text-muted-foreground">Sin información</li>
+            ) : (
+              proceso.sujetos.map((s, i) => (
+                <li key={`${s.nombre}-${i}`}>
+                  {s.tipo && <strong className="font-medium">{s.tipo}: </strong>}
+                  {s.nombre}
+                </li>
+              ))
+            )}
+          </ul>
+        </section>
+
+        <Actuaciones proceso={proceso} onAgendar={agendar} onAviso={(texto) => setAviso({ tipo: 'ok', texto })} />
+        </>
+      )}
     </div>
   );
 }

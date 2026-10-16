@@ -40,12 +40,14 @@ export function AgregarRadicado({ onAgregado }: Props) {
         method: 'POST',
         body: { radicado: numero, alias: alias.trim() },
       });
-      const privados = respuesta.agregados.filter((a) => 'privado' in a && a.privado).length;
-      const agregados = respuesta.agregados.length - privados;
-      setAviso(agregados > 1 ? `Se agregaron ${agregados} instancias del proceso.` : 'Proceso agregado.');
-      if (privados) {
-        setError(`${privados} instancia(s) son privadas en la Rama Judicial y no se pueden seguir.`);
-      }
+      const total = respuesta.agregados.length;
+      const privados = respuesta.agregados.filter((a) => a.esPrivado).length;
+      const base = total > 1 ? `Se agregaron ${total} instancias del proceso.` : 'Proceso agregado.';
+      setAviso(
+        privados
+          ? `${base} ${privados > 1 ? `${privados} son privadas` : 'Es privado'} en la Rama Judicial: se vigilan los estados del juzgado en lugar de las actuaciones.`
+          : base,
+      );
       setRadicado('');
       setAlias('');
       onAgregado();

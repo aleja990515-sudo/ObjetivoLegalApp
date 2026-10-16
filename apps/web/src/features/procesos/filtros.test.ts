@@ -12,6 +12,8 @@ function proceso(parcial: Partial<ProcesoResumen> & Pick<ProcesoResumen, 'idProc
     ultimaActuacion: null,
     ultimoAuto: null,
     noVistas: 0,
+    esPrivado: false,
+    estadosNoVistos: 0,
     nuevaInstancia: false,
     proximaTarea: null,
     tareasVencidas: 0,
