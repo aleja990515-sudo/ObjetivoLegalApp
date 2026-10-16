@@ -16,6 +16,9 @@ export class ProcesoEntity {
   @Column({ name: 'sujetos_texto', type: 'text', nullable: true })
   sujetosTexto: string | null;
 
+  @Column({ name: 'es_privado', type: 'boolean', default: false })
+  esPrivado: boolean;
+
   // `any` (not `unknown`) so TypeORM's QueryDeepPartialEntity accepts the raw CPNU JSON.
   @Column({ type: 'jsonb', default: () => "'{}'" })
   detalle: Record<string, any>;

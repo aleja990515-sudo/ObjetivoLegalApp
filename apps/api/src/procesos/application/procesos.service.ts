@@ -31,7 +31,10 @@ import { CPNU_PORT, type CpnuPort } from './ports/cpnu.port.js';
 import { DetectInstancesService } from './detect-instances.service.js';
 import { RefreshProcesoService } from './refresh-proceso.service.js';
 
-/** Result entry for a private proceso: it is reported, never stored. */
+/**
+ * @deprecated A private proceso is stored and reported as a `ProcesoResumen`
+ * now; this entry is only kept for the web client until it is updated.
+ */
 export interface ProcesoPrivado {
   idProceso: string;
   privado: true;
@@ -84,12 +87,10 @@ export class ProcesosService {
     for (const encontrado of encontrados) {
       const id = String(encontrado.idProceso);
       if (seguidos.has(id)) continue;
-      if (encontrado.esPrivado) {
-        agregados.push({ idProceso: id, privado: true });
-        continue;
-      }
       const inicial = newProceso(encontrado, numero, usuario.nombre, ahora(), { alias: texto(alias, LIMITE.alias) });
-      const proceso = await this.refresher.hydrateNew(inicial);
+      // A private proceso is stored with the little the search returns: CPNU
+      // answers 404 for its detail, parties and actuaciones.
+      const proceso = encontrado.esPrivado ? inicial : await this.refresher.hydrateNew(inicial);
       if (!(await this.procesos.insert(proceso))) continue; // added concurrently
       agregados.push(resumen(proceso, today));
     }

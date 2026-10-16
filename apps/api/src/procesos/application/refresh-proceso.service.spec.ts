@@ -40,6 +40,22 @@ describe('RefreshProcesoService', () => {
     expect(await repo.findById('2')).toBeNull();
   });
 
+  it('does not call CPNU for a private proceso and keeps its stored data', async () => {
+    const privados = new InMemoryProcesoRepository([
+      proceso('7', { esPrivado: true, despacho: 'JUZGADO 003 DE FAMILIA', alias: 'Privado' }),
+    ]);
+    const result = await new RefreshProcesoService(cpnu, privados).refresh('7');
+    expect(result).toMatchObject({ nuevas: 0, error: null, state: { actuaciones: [], ultimaConsulta: null } });
+    expect(cpnu.calls).toEqual([]);
+    expect(await privados.findById('7')).toMatchObject({
+      esPrivado: true,
+      despacho: 'JUZGADO 003 DE FAMILIA',
+      alias: 'Privado',
+      ultimaConsulta: null,
+      error: null,
+    });
+  });
+
   describe('hydrateNew', () => {
     it('loads the CPNU data of a not-yet-stored proceso without marking anything new', async () => {
       cpnu.procesos.set('7', { detalle: { a: 1 }, sujetos: [{ tipo: 't', nombre: 'n' }], actuaciones: [actuacion(3)] });

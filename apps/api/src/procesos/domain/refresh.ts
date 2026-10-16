@@ -52,7 +52,9 @@ export function newProceso(
     radicado,
     alias: '',
     despacho: found.despacho,
-    sujetosTexto: found.sujetosProcesales,
+    // CPNU hides the parties of a private proceso (it answers a placeholder string).
+    sujetosTexto: found.esPrivado ? null : found.sujetosProcesales,
+    esPrivado: found.esPrivado,
     detalle: {},
     sujetos: [],
     actuaciones: [],

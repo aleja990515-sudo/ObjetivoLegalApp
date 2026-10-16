@@ -15,6 +15,8 @@ export interface ProcesoResumen {
   despacho: string | null;
   claseProceso: unknown;
   sujetos: string | null;
+  /** True when the Rama reserved the case: it only has the radicado search data. */
+  esPrivado: boolean;
   ultimaActuacion: Actuacion | null;
   ultimoAuto: Actuacion | null;
   /** Number of unseen actuaciones. */
@@ -70,6 +72,7 @@ export function resumen(p: Proceso, hoy: string): ProcesoResumen {
     despacho: courtName(p),
     claseProceso: p.detalle.claseProceso,
     sujetos: p.sujetosTexto,
+    esPrivado: p.esPrivado,
     ultimaActuacion: p.actuaciones[0] ?? null,
     ultimoAuto: p.actuaciones.find((a) => ES_PROVIDENCIA.test(a.actuacion || '')) ?? null,
     noVistas: p.noVistas.length,

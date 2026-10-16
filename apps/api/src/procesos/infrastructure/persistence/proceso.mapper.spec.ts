@@ -13,6 +13,7 @@ import {
 describe('proceso mapper', () => {
   const original = proceso('101', {
     detalle: { despacho: 'JUZGADO', claseProceso: 'Verbal' },
+    esPrivado: true,
     sujetos: [
       { tipo: 'Demandante', nombre: 'A' },
       { tipo: 'Demandado', nombre: 'B' },

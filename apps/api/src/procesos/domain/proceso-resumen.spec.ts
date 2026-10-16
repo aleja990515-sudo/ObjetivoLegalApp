@@ -23,6 +23,7 @@ describe('proceso-resumen (legacy resumen/detalleCompleto)', () => {
       despacho: 'JUZGADO DETALLE',
       claseProceso: 'Ordinario',
       sujetos: 'Demandante: A | Demandado: B',
+      esPrivado: false,
       ultimaActuacion: actuacion(2, { actuacion: 'Auto admite demanda' }),
       ultimoAuto: actuacion(2, { actuacion: 'Auto admite demanda' }),
       noVistas: 1,
@@ -40,6 +41,38 @@ describe('proceso-resumen (legacy resumen/detalleCompleto)', () => {
   it('falls back to the search court name and ultimaActuacion null when there are no actuaciones', () => {
     const p = proceso('1', { detalle: {}, despacho: 'JUZGADO BÚSQUEDA' });
     expect(resumen(p, HOY)).toMatchObject({ despacho: 'JUZGADO BÚSQUEDA', ultimaActuacion: null, ultimoAuto: null });
+  });
+
+  it('summarizes an unhydrated private proceso without throwing', () => {
+    const p = proceso('7', { esPrivado: true, sujetosTexto: null, despacho: 'JUZGADO 003', detalle: {} });
+    expect(resumen(p, HOY)).toEqual({
+      idProceso: '7',
+      radicado: '11001310300120190012300',
+      alias: '',
+      despacho: 'JUZGADO 003',
+      claseProceso: undefined,
+      sujetos: null,
+      esPrivado: true,
+      ultimaActuacion: null,
+      ultimoAuto: null,
+      noVistas: 0,
+      nuevaInstancia: false,
+      proximaTarea: null,
+      tareasVencidas: 0,
+      responsable: '',
+      etiquetas: [],
+      ultimaConsulta: null,
+      agregadoPor: 'Ana',
+      error: null,
+    });
+    expect(detalleCompleto(p, HOY)).toMatchObject({
+      detalle: {},
+      sujetos: [],
+      actuaciones: [],
+      noVistasIds: [],
+      notas: [],
+      tareas: [],
+    });
   });
 
   it('picks the next pending task (date then time) and counts overdue ones', () => {

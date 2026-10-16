@@ -114,11 +114,36 @@ describe('Procesos API contract (e2e)', () => {
       expect(res.body.agregados[0]).toMatchObject({ idProceso: '1', error: 'La Rama Judicial respondió 500' });
     });
 
-    it('reports private procesos as {idProceso, privado: true} without storing them', async () => {
-      cpnu.radicados.set(RADICADO, [encontrado('7', { esPrivado: true })]);
+    it('stores a private proceso with its esPrivado flag and answers its summary', async () => {
+      cpnu.radicados.set(RADICADO, [
+        encontrado('7', { esPrivado: true, sujetosProcesales: '--- [ PROCESO PRIVADO ] ---' }),
+      ]);
       const res = await http().post('/api/procesos').set('Cookie', cookie).send({ radicado: RADICADO }).expect(201);
-      expect(res.body.agregados).toEqual([{ idProceso: '7', privado: true }]);
-      expect(await procesos.findById('7')).toBeNull();
+
+      expect(res.body.agregados).toEqual([
+        expect.objectContaining({
+          idProceso: '7',
+          radicado: RADICADO,
+          esPrivado: true,
+          sujetos: null,
+          despacho: 'DESPACHO 7',
+          ultimaActuacion: null,
+          ultimoAuto: null,
+          noVistas: 0,
+          error: null,
+        }),
+      ]);
+      expect(await procesos.findById('7')).toMatchObject({
+        esPrivado: true,
+        sujetosTexto: null, // CPNU's "--- [ PROCESO PRIVADO ] ---" placeholder is never stored
+        despacho: 'DESPACHO 7',
+        detalle: {},
+        sujetos: [],
+        actuaciones: [],
+        ultimaConsulta: null,
+        error: null,
+      });
+      expect(cpnu.calls).not.toContain('load:7'); // CPNU answers 404 for a private expediente
     });
 
     it('answers 409 when every instance is already followed', async () => {
@@ -285,6 +310,14 @@ describe('Procesos API contract (e2e)', () => {
 
     it('answers 404 "Proceso no encontrado." for an unknown id', async () => {
       await http().post('/api/procesos/999/actualizar').set('Cookie', cookie).expect(404);
+    });
+
+    it('does not consult CPNU for a private proceso and keeps it without error', async () => {
+      await sembrar({ esPrivado: true });
+      const res = await http().post('/api/procesos/1/actualizar').set('Cookie', cookie).expect(200);
+      expect(res.body).toMatchObject({ idProceso: '1', esPrivado: true, error: null, instanciasNuevas: 0 });
+      expect(cpnu.calls).not.toContain('load:1');
+      expect(await procesos.findById('1')).toMatchObject({ ultimaConsulta: null, error: null });
     });
   });
 

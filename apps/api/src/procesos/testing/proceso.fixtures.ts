@@ -42,6 +42,7 @@ export function proceso(idProceso: string, overrides: Partial<Proceso> = {}): Pr
     radicado: '11001310300120190012300',
     despacho: 'JUZGADO 001 CIVIL DEL CIRCUITO',
     sujetosTexto: 'Demandante: A | Demandado: B',
+    esPrivado: false,
     detalle: {},
     sujetos: [],
     actuaciones: [],

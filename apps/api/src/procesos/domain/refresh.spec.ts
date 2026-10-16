@@ -108,6 +108,7 @@ describe('newProceso', () => {
       alias: '',
       despacho: 'JUZGADO 1',
       sujetosTexto: 'A | B',
+      esPrivado: false,
       detalle: {},
       sujetos: [],
       actuaciones: [],
@@ -126,6 +127,16 @@ describe('newProceso', () => {
 
   it('applies extra fields', () => {
     expect(newProceso(found, 'r', 'Ana', NOW, { alias: 'Caso' }).alias).toBe('Caso');
+  });
+
+  it('carries esPrivado and drops CPNU placeholder parties for a private proceso', () => {
+    const privado = newProceso(
+      { ...found, esPrivado: true, sujetosProcesales: '--- [ PROCESO PRIVADO ] ---' },
+      'r',
+      'Ana',
+      NOW,
+    );
+    expect(privado).toMatchObject({ esPrivado: true, sujetosTexto: null, despacho: 'JUZGADO 1' });
   });
 });
 
