@@ -8,3 +8,6 @@ coverage/
 .vercel
 .env*
 !.env.example
+
+# ODD feature documents are local working notes, never committed
+odd/
