@@ -8,11 +8,11 @@ import { AutosService, MAX_ESTADOS_REVISADOS } from './autos.service.js';
 
 class MemoriaAutos implements AutoPublicadoRepository {
   readonly filas = new Map<string, AutoPublicado>();
-  async buscar(idProceso: string, idActuacion: number) {
-    return this.filas.get(`${idProceso}:${idActuacion}`) ?? null;
+  async buscar(procesoId: string, idActuacion: number) {
+    return this.filas.get(`${procesoId}:${idActuacion}`) ?? null;
   }
   async guardar(auto: AutoPublicado) {
-    this.filas.set(`${auto.idProceso}:${auto.idActuacion}`, auto);
+    this.filas.set(`${auto.procesoId}:${auto.idActuacion}`, auto);
     return true;
   }
 }

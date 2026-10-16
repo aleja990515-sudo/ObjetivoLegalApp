@@ -32,10 +32,11 @@ function ownerValido(usuarioId: string): string {
 }
 
 export class InMemoryProcesoRepository implements ProcesoRepository {
+  /** Keyed by the surrogate `id`: two users may follow the same `idProceso`. */
   readonly procesos = new Map<string, Proceso>();
 
   constructor(initial: Proceso[] = []) {
-    for (const p of initial) this.procesos.set(p.idProceso, clone(p));
+    for (const p of initial) this.procesos.set(p.id, clone(p));
   }
 
   async findAll(usuarioId: string): Promise<Proceso[]> {
@@ -43,41 +44,53 @@ export class InMemoryProcesoRepository implements ProcesoRepository {
   }
 
   async findById(idProceso: string, usuarioId: string): Promise<Proceso | null> {
-    const p = this.procesos.get(idProceso);
-    return p?.usuarioId === usuarioId ? clone(p) : null;
+    const p = this.estaSeguido(idProceso, usuarioId);
+    return p ? clone(p) : null;
   }
 
-  async findByIdForReview(idProceso: string): Promise<Proceso | null> {
-    const p = this.procesos.get(idProceso);
+  async findByIdForReview(id: string): Promise<Proceso | null> {
+    const p = this.procesos.get(id);
+    return p ? clone(p) : null;
+  }
+
+  /**
+   * Test-only lookup by CPNU id. `id_proceso` stopped being a key, so a spec that
+   * knows only the id has to go through here instead of `findByIdForReview`.
+   */
+  async porIdProceso(idProceso: string, usuarioId?: string | null): Promise<Proceso | null> {
+    const p = [...this.procesos.values()].find(
+      (x) => x.idProceso === idProceso && (usuarioId === undefined || x.usuarioId === usuarioId),
+    );
     return p ? clone(p) : null;
   }
 
   async listRefs(usuarioId: string): Promise<ProcesoRef[]> {
     const owner = ownerValido(usuarioId);
-    return [...this.procesos.values()]
-      .filter((p) => p.usuarioId === owner)
-      .map(({ idProceso, radicado }) => ({ idProceso, radicado }));
+    return [...this.procesos.values()].filter((p) => p.usuarioId === owner).map(toRef);
   }
 
   async listRefsForReview(): Promise<ProcesoRef[]> {
-    return [...this.procesos.values()].map(({ idProceso, radicado }) => ({ idProceso, radicado }));
+    return [...this.procesos.values()].map(toRef);
   }
 
   async insert(proceso: Proceso): Promise<boolean> {
-    if (this.procesos.has(proceso.idProceso)) return false;
-    this.procesos.set(proceso.idProceso, clone(proceso));
+    // Mirrors the two database keys: `UNIQUE (usuario_id, id_proceso)` plus the
+    // partial index over the orphans, which a plain unique index would leave
+    // unconstrained because it compares NULLs as distinct.
+    if (this.estaSeguido(proceso.idProceso, proceso.usuarioId)) return false;
+    this.procesos.set(proceso.id, clone(proceso));
     return true;
   }
 
-  async delete(idProceso: string): Promise<boolean> {
-    return this.procesos.delete(idProceso);
+  async delete(id: string): Promise<boolean> {
+    return this.procesos.delete(id);
   }
 
   async updateCpnuState(
-    idProceso: string,
+    id: string,
     mutate: (current: ProcesoCpnuState) => ProcesoCpnuState,
   ): Promise<ProcesoCpnuState | null> {
-    const p = this.procesos.get(idProceso);
+    const p = this.procesos.get(id);
     if (!p) return null;
     const { detalle, sujetos, actuaciones, noVistas, ultimaConsulta, error } = clone(p);
     const next = mutate({ detalle, sujetos, actuaciones, noVistas, ultimaConsulta, error });
@@ -87,56 +100,63 @@ export class InMemoryProcesoRepository implements ProcesoRepository {
     return clone({ ...next, noVistas: pruned });
   }
 
-  async updateOffice(idProceso: string, changes: ProcesoOfficeChanges): Promise<boolean> {
-    const p = this.procesos.get(idProceso);
+  async updateOffice(id: string, changes: ProcesoOfficeChanges): Promise<boolean> {
+    const p = this.procesos.get(id);
     if (!p) return false;
-    Object.assign(p, Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined)));
+    Object.assign(p, clone(Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined))));
     return true;
   }
 
-  async markSeen(idProceso: string): Promise<boolean> {
-    const p = this.procesos.get(idProceso);
+  async markSeen(id: string): Promise<boolean> {
+    const p = this.procesos.get(id);
     if (!p) return false;
     p.noVistas = [];
     p.nuevaInstancia = false;
     return true;
   }
 
-  async addNota(idProceso: string, nota: Nota): Promise<boolean> {
-    const p = this.procesos.get(idProceso);
+  async addNota(id: string, nota: Nota): Promise<boolean> {
+    const p = this.procesos.get(id);
     if (!p) return false;
     p.notas.unshift(clone(nota));
     return true;
   }
 
-  async deleteNota(idProceso: string, idNota: string): Promise<boolean> {
-    const p = this.procesos.get(idProceso);
+  async deleteNota(id: string, idNota: string): Promise<boolean> {
+    const p = this.procesos.get(id);
     if (!p || !p.notas.some((n) => n.id === idNota)) return false;
     p.notas = p.notas.filter((n) => n.id !== idNota);
     return true;
   }
 
-  async addTarea(idProceso: string, tarea: Tarea): Promise<boolean> {
-    const p = this.procesos.get(idProceso);
+  async addTarea(id: string, tarea: Tarea): Promise<boolean> {
+    const p = this.procesos.get(id);
     if (!p) return false;
     p.tareas.push(clone(tarea));
     return true;
   }
 
-  async updateTarea(idProceso: string, idTarea: string, changes: TareaChanges): Promise<boolean> {
-    const tarea = this.procesos.get(idProceso)?.tareas.find((t) => t.id === idTarea);
+  async updateTarea(id: string, idTarea: string, changes: TareaChanges): Promise<boolean> {
+    const tarea = this.procesos.get(id)?.tareas.find((t) => t.id === idTarea);
     if (!tarea) return false;
-    Object.assign(tarea, Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined)));
+    Object.assign(tarea, clone(Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined))));
     return true;
   }
 
-  async deleteTarea(idProceso: string, idTarea: string): Promise<boolean> {
-    const p = this.procesos.get(idProceso);
+  async deleteTarea(id: string, idTarea: string): Promise<boolean> {
+    const p = this.procesos.get(id);
     if (!p || !p.tareas.some((t) => t.id === idTarea)) return false;
     p.tareas = p.tareas.filter((t) => t.id !== idTarea);
     return true;
   }
+
+  /** An ownerless row dedupes on `id_proceso` alone, the way `procesos_huerfano_uniq` does. */
+  private estaSeguido(idProceso: string, usuarioId: string | null): Proceso | undefined {
+    return [...this.procesos.values()].find((p) => p.idProceso === idProceso && p.usuarioId === usuarioId);
+  }
 }
+
+const toRef = ({ id, idProceso, radicado }: Proceso): ProcesoRef => ({ id, idProceso, radicado });
 
 export class InMemoryMetaRepository implements MetaRepository {
   readonly values = new Map<string, string>();

@@ -72,6 +72,7 @@ export function toCpnuState(
 
 export function toProceso({ proceso, actuaciones, sujetos, notas, tareas }: ProcesoRows): Proceso {
   return {
+    id: proceso.id,
     idProceso: proceso.idProceso,
     radicado: proceso.radicado,
     usuarioId: proceso.usuarioId ?? null,
@@ -92,6 +93,7 @@ export function toProceso({ proceso, actuaciones, sujetos, notas, tareas }: Proc
 
 export function toProcesoEntity(p: Proceso): ProcesoEntity {
   return Object.assign(new ProcesoEntity(), {
+    id: p.id,
     idProceso: p.idProceso,
     radicado: p.radicado,
     usuarioId: p.usuarioId,
@@ -114,7 +116,7 @@ export function toProcesoEntity(p: Proceso): ProcesoEntity {
  * its first occurrence (the table key is `(id_proceso, id)`).
  */
 export function toActuacionEntities(
-  idProceso: string,
+  procesoId: string,
   actuaciones: Actuacion[],
   noVistas: number[],
 ): ActuacionEntity[] {
@@ -126,7 +128,7 @@ export function toActuacionEntities(
     seen.add(a.id);
     rows.push(
       Object.assign(new ActuacionEntity(), {
-        idProceso,
+        procesoId,
         id: a.id,
         orden: rows.length,
         cons: a.cons,
@@ -144,26 +146,26 @@ export function toActuacionEntities(
   return rows;
 }
 
-export function toSujetoEntities(idProceso: string, sujetos: Sujeto[]): SujetoEntity[] {
+export function toSujetoEntities(procesoId: string, sujetos: Sujeto[]): SujetoEntity[] {
   return sujetos.map((s, orden) =>
-    Object.assign(new SujetoEntity(), { idProceso, orden, tipo: s.tipo, nombre: s.nombre }),
+    Object.assign(new SujetoEntity(), { procesoId, orden, tipo: s.tipo, nombre: s.nombre }),
   );
 }
 
-export function toNotaEntity(idProceso: string, nota: Nota): NotaEntity {
+export function toNotaEntity(procesoId: string, nota: Nota): NotaEntity {
   return Object.assign(new NotaEntity(), {
     id: nota.id,
-    idProceso,
+    procesoId,
     texto: nota.texto,
     autor: nota.autor,
     fecha: ormDesdeIso(nota.fecha),
   });
 }
 
-export function toTareaEntity(idProceso: string, tarea: Tarea): TareaEntity {
+export function toTareaEntity(procesoId: string, tarea: Tarea): TareaEntity {
   return Object.assign(new TareaEntity(), {
     id: tarea.id,
-    idProceso,
+    procesoId,
     titulo: tarea.titulo,
     fecha: tarea.fecha,
     hora: tarea.hora,

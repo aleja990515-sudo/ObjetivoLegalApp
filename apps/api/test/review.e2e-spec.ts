@@ -37,6 +37,12 @@ describe('Review: /api/cron and /api/salud (e2e)', () => {
     sleep.mockClear();
   });
 
+  /** `id_proceso` is not a key any more, so the cron scope is walked to find a row by it. */
+  const enRevision = async (idProceso: string) => {
+    const ref = (await procesos.listRefsForReview()).find((r) => r.idProceso === idProceso);
+    return ref ? procesos.findByIdForReview(ref.id) : null;
+  };
+
   describe('/api/cron', () => {
     it.each([undefined, 'Bearer otro', 'cron-de-prueba'])('rejects authorization %s with 401', async (auth) => {
       const req = request(app.getHttpServer()).get('/api/cron');
@@ -56,8 +62,8 @@ describe('Review: /api/cron and /api/salud (e2e)', () => {
         .expect(200);
 
       expect(res.body).toEqual({ nuevas: 1, instancias: 1, errores: 0 });
-      expect(await procesos.findByIdForReview('1')).toMatchObject({ noVistas: [2], alias: 'Caso', detalle: { despacho: 'J' } });
-      expect(await procesos.findByIdForReview('2')).toMatchObject({
+      expect(await enRevision('1')).toMatchObject({ noVistas: [2], alias: 'Caso', detalle: { despacho: 'J' } });
+      expect(await enRevision('2')).toMatchObject({
         alias: 'Caso (nueva instancia)',
         nuevaInstancia: true,
         agregadoPor: 'Revisión automática',
@@ -79,8 +85,8 @@ describe('Review: /api/cron and /api/salud (e2e)', () => {
         .expect(200);
 
       expect(res.body).toEqual({ nuevas: 2, instancias: 0, errores: 0 });
-      expect(await procesos.findByIdForReview('1')).toMatchObject({ noVistas: [3] });
-      expect(await procesos.findByIdForReview('2')).toMatchObject({ noVistas: [4] });
+      expect(await enRevision('1')).toMatchObject({ noVistas: [3] });
+      expect(await enRevision('2')).toMatchObject({ noVistas: [4] });
     });
 
     it('rejects every request when CRON_SECRET is not configured', async () => {

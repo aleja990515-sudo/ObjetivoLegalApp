@@ -22,14 +22,19 @@ export class RefreshProcesoService {
     @Inject(PROCESO_REPOSITORY) private readonly procesos: ProcesoRepository,
   ) {}
 
-  async refresh(idProceso: string): Promise<RefreshResult> {
+  /**
+   * Re-reads `proceso` from CPNU and stores only the CPNU-owned data. CPNU is
+   * addressed by `idProceso` and the row is written by the surrogate `id`, so a
+   * refresh never touches the copy another user keeps of the same expediente.
+   */
+  async refresh(proceso: Proceso): Promise<RefreshResult> {
     // CPNU is queried outside the transaction; the diff is computed against the
     // state locked at write time, so concurrent office edits are respected.
     let nuevas = 0;
     let error: string | null = null;
     let mutate: (current: ProcesoCpnuState) => ProcesoCpnuState;
     try {
-      const loaded = await this.cpnu.loadProceso(idProceso);
+      const loaded = await this.cpnu.loadProceso(proceso.idProceso);
       const now = ahoraIso();
       mutate = (current) => {
         const outcome = applyRefresh(current, loaded, now);
@@ -40,7 +45,7 @@ export class RefreshProcesoService {
       error = errorMessage(e);
       mutate = (current) => applyRefreshError(current, error as string);
     }
-    const state = await this.procesos.updateCpnuState(idProceso, mutate);
+    const state = await this.procesos.updateCpnuState(proceso.id, mutate);
     return state ? { state, nuevas, error } : { state: null, nuevas: 0, error: null };
   }
 

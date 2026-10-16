@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { ProcesoCargado, ProcesoEncontrado } from './cpnu-data.js';
 import type { Proceso, ProcesoCpnuState } from './proceso.js';
 
@@ -39,7 +40,11 @@ export function applyRefreshError(current: ProcesoCpnuState, message: string): P
   return { ...current, error: message };
 }
 
-/** Empty proceso for a CPNU search result (legacy `nuevoProceso`). */
+/**
+ * Empty proceso for a CPNU search result (legacy `nuevoProceso`). The surrogate
+ * `id` is minted here, so a detected instance already carries its own key and
+ * never collides with the copy of another user following the same expediente.
+ */
 export function newProceso(
   found: ProcesoEncontrado,
   radicado: string,
@@ -49,6 +54,7 @@ export function newProceso(
   extra: Partial<Proceso> = {},
 ): Proceso {
   return {
+    id: randomUUID(),
     idProceso: String(found.idProceso),
     radicado,
     usuarioId,

@@ -50,21 +50,28 @@ export class ReviewService {
     let nuevas = 0;
     let errores = 0;
     let instancias = 0;
-    const radicados = new Map<string, Proceso>();
+    const radicados = new Map<string, Proceso[]>();
 
-    for (const { idProceso } of await this.procesos.listRefsForReview()) {
-      const proceso = await this.procesos.findByIdForReview(idProceso); // read right before, in case it was edited
+    for (const { id } of await this.procesos.listRefsForReview()) {
+      const proceso = await this.procesos.findByIdForReview(id); // read right before, in case it was edited
       if (!proceso) continue;
-      if (!radicados.has(proceso.radicado)) radicados.set(proceso.radicado, proceso);
-      const result = await this.refresher.refresh(idProceso);
+      // One base per owner of the radicado: co-followers each get the new instance,
+      // and the ownerless orphans share one slot.
+      const duenos = radicados.get(proceso.radicado);
+      if (duenos) {
+        if (!duenos.some((p) => p.usuarioId === proceso.usuarioId)) duenos.push(proceso);
+      } else {
+        radicados.set(proceso.radicado, [proceso]);
+      }
+      const result = await this.refresher.refresh(proceso);
       nuevas += result.nuevas;
       if (result.error) errores++;
       await this.sleep(PAUSE_PER_PROCESO_MS);
     }
 
-    for (const [radicado, base] of radicados) {
+    for (const [radicado, bases] of radicados) {
       try {
-        instancias += await this.instances.detect(radicado, base);
+        instancias += await this.instances.detect(radicado, bases);
       } catch {
         errores++;
       }

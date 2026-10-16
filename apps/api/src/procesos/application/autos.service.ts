@@ -47,7 +47,9 @@ export class AutosService {
     if (!actuacion) throw new ApiError(404, 'Actuación no encontrada.');
     if (!esProvidencia(actuacion.actuacion)) throw new ApiError(404, 'Esa actuación no es un auto ni una sentencia.');
 
-    const clave = `${idProceso}:${idActuacion}`;
+    // Keyed on the copy, not on the CPNU id: two users may follow the same expediente
+    // and each one has to get the result written into their own row.
+    const clave = `${proceso.id}:${idActuacion}`;
     const pendiente = this.enCurso.get(clave);
     if (pendiente) return pendiente;
     const busqueda = this.resolver(proceso, actuacion).finally(() => this.enCurso.delete(clave));
@@ -56,7 +58,9 @@ export class AutosService {
   }
 
   private async resolver(proceso: Proceso, actuacion: Actuacion): Promise<ResultadoAuto> {
-    const guardado = await this.autos.buscar(proceso.idProceso, actuacion.id);
+    // Cached per copy: the surrogate `id` is what `autos_publicados` hangs from, so
+    // two users following the same expediente keep their own cache.
+    const guardado = await this.autos.buscar(proceso.id, actuacion.id);
     const ahora = Temporal.Now.instant();
     if (guardado && !debeBuscar(guardado, ahora)) return publico(guardado);
 
@@ -72,7 +76,7 @@ export class AutosService {
 
     await this.autos.guardar({
       ...resultado,
-      idProceso: proceso.idProceso,
+      procesoId: proceso.id,
       idActuacion: actuacion.id,
       buscadoEn: isoMs(ahora),
       intentos: (guardado?.intentos ?? 0) + 1,

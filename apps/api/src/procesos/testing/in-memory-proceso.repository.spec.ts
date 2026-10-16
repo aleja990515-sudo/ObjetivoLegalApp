@@ -4,10 +4,11 @@ import { InMemoryProcesoRepository } from './in-memory-proceso.repository.js';
 const UUID = '3f2a8c10-4d5e-4a6b-8c9d-0e1f2a3b4c5d';
 
 describe('InMemoryProcesoRepository (contract with the TypeORM adapter)', () => {
-  const repo = new InMemoryProcesoRepository([proceso('1', { usuarioId: UUID })]);
+  const caso = proceso('1', { usuarioId: UUID });
+  const repo = new InMemoryProcesoRepository([caso]);
 
   it('scopes the refs to a uuid owner', async () => {
-    expect(await repo.listRefs(UUID)).toEqual([{ idProceso: '1', radicado: '11001310300120190012300' }]);
+    expect(await repo.listRefs(UUID)).toEqual([{ id: caso.id, idProceso: '1', radicado: '11001310300120190012300' }]);
   });
 
   it('rejects a non-uuid owner instead of quietly returning nothing', async () => {

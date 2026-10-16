@@ -40,8 +40,8 @@ describe('ReviewService', () => {
 
     expect(cpnu.calls.filter((c) => c.startsWith('search:'))).toEqual([`search:${R1}`, `search:${R2}`]);
     // The first proceso of each radicado is the base of new instances.
-    expect((await repo.findByIdForReview('9'))?.alias).toBe('Primero (nueva instancia)');
-    expect((await repo.findByIdForReview('3'))?.error).toBe('La Rama Judicial respondió 500');
+    expect((await repo.porIdProceso('9'))?.alias).toBe('Primero (nueva instancia)');
+    expect((await repo.porIdProceso('3'))?.error).toBe('La Rama Judicial respondió 500');
     expect(Temporal.Instant.from((await meta.get(META_ULTIMA_REVISION)) ?? '').epochMilliseconds).toBeGreaterThanOrEqual(before);
   });
 
@@ -94,5 +94,30 @@ describe('ReviewService', () => {
     await otro.reviewAll();
 
     expect(cpnu.calls.filter((c) => c.startsWith('load:')).sort()).toEqual(['load:1', 'load:4', 'load:5']);
+  });
+
+  it('propagates a new instance to every co-follower of the radicado', async () => {
+    const ANA = '9b8c7d6e-5f4a-4b3c-9d8e-7f6a5b4c3d2e';
+    const LUIS = '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+    const coSiguen = new InMemoryProcesoRepository([
+      proceso('1', { radicado: R1, usuarioId: ANA }),
+      proceso('2', { radicado: R1, usuarioId: LUIS }),
+    ]);
+    const refresher = new RefreshProcesoService(cpnu, coSiguen);
+    const otro = new ReviewService(
+      coSiguen,
+      meta,
+      refresher,
+      new DetectInstancesService(cpnu, coSiguen, refresher),
+      sleep,
+    );
+    cpnu.radicados.set(R1, [encontrado('9')]);
+
+    expect(await otro.reviewAll()).toEqual({ nuevas: 0, instancias: 2, errores: 0 });
+
+    expect((await coSiguen.porIdProceso('9', ANA))?.nuevaInstancia).toBe(true);
+    expect((await coSiguen.porIdProceso('9', LUIS))?.nuevaInstancia).toBe(true);
+    // One search per radicado, not one per owner: the co-follower costs no extra call.
+    expect(cpnu.calls.filter((c) => c.startsWith('search:'))).toEqual([`search:${R1}`]);
   });
 });

@@ -3,13 +3,14 @@ import { ProcesoEntity } from './proceso.entity.js';
 import { bigintToNumber } from './transformers.js';
 
 @Entity('notas')
-@Index('notas_proceso_idx', ['idProceso', 'seq'])
+@Index('notas_proceso_idx', ['procesoId', 'seq'])
 export class NotaEntity {
   @PrimaryColumn({ type: 'text' })
   id: string;
 
-  @Column({ name: 'id_proceso', type: 'text' })
-  idProceso: string;
+  /** Surrogate `procesos.id`, not the CPNU `id_proceso`. */
+  @Column({ name: 'id_proceso', type: 'uuid' })
+  procesoId: string;
 
   /** Insertion order (identity column), used as a stable sort key. */
   @Column({

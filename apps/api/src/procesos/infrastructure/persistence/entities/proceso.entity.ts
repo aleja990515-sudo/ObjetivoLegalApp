@@ -1,8 +1,14 @@
-import { Column, Entity, Index, PrimaryColumn } from 'typeorm';
+import { Column, Entity, Index, PrimaryColumn, Unique } from 'typeorm';
 
 @Entity('procesos')
+@Unique('procesos_usuario_id_proceso_uniq', ['usuarioId', 'idProceso'])
 export class ProcesoEntity {
-  @PrimaryColumn({ name: 'id_proceso', type: 'text' })
+  /** Surrogate key. The column also defaults in Postgres, so raw SQL can insert without one. */
+  @PrimaryColumn({ name: 'id', type: 'uuid' })
+  id: string;
+
+  /** CPNU id: unique per owner, not per table, so two users can follow the same expediente. */
+  @Column({ name: 'id_proceso', type: 'text' })
   idProceso: string;
 
   @Index('procesos_radicado_idx')

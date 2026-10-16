@@ -103,6 +103,7 @@ describe('newProceso', () => {
 
   it('builds an empty proceso like the legacy nuevoProceso', () => {
     expect(newProceso(found, '11001310300120190012300', 'Ana', 'u-ana', NOW)).toEqual({
+      id: expect.any(String),
       idProceso: '123',
       radicado: '11001310300120190012300',
       usuarioId: 'u-ana',
@@ -127,6 +128,14 @@ describe('newProceso', () => {
 
   it('applies extra fields', () => {
     expect(newProceso(found, 'r', 'Ana', 'u-ana', NOW, { alias: 'Caso' }).alias).toBe('Caso');
+  });
+
+  it('mints a different surrogate for every copy of the same expediente', () => {
+    const uno = newProceso(found, '11001310300120190012300', 'Ana', 'u-ana', NOW);
+    const otro = newProceso(found, '11001310300120190012300', 'Beto', 'u-beto', NOW);
+    expect(uno.idProceso).toBe(otro.idProceso);
+    expect(uno.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    expect(uno.id).not.toBe(otro.id);
   });
 });
 

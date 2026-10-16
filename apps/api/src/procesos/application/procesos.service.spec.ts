@@ -66,7 +66,7 @@ describe('ProcesosService (per-user ownership)', () => {
   it.each(ESCRITURAS)('%s answers 404 (never 403) on a proceso of another user', async (_, escribir) => {
     await esperaNoEncontrado(escribir('1'));
     // Nothing was touched: the owner still sees the proceso exactly as it was.
-    expect(await repo.findByIdForReview('1')).toMatchObject({
+    expect(await repo.porIdProceso('1')).toMatchObject({
       alias: 'Caso de Ana',
       noVistas: [],
       notas: [nota('n1')],
@@ -122,15 +122,15 @@ describe('ProcesosService (per-user ownership)', () => {
   it('stamps the owner and the caller name on a new proceso', async () => {
     cpnu.radicados.set('11001310300120190012300', [{ idProceso: '7', despacho: 'J', sujetosProcesales: null, esPrivado: false }]);
     await service.add(USUARIO, { radicado: RADICADO });
-    expect(await repo.findByIdForReview('7')).toMatchObject({ usuarioId: USUARIO.id, agregadoPor: 'Ana' });
+    expect(await repo.porIdProceso('7')).toMatchObject({ usuarioId: USUARIO.id, agregadoPor: 'Ana' });
   });
 
   it('stamps hechaPor with the name of the user that completes a task', async () => {
     await service.actualizarTarea(USUARIO, '1', 't1', { hecha: true });
-    expect((await repo.findByIdForReview('1'))?.tareas[0]).toMatchObject({ hecha: true, hechaPor: 'Ana' });
+    expect((await repo.porIdProceso('1'))?.tareas[0]).toMatchObject({ hecha: true, hechaPor: 'Ana' });
 
     await service.actualizarTarea(USUARIO, '1', 't1', { hecha: false });
-    expect((await repo.findByIdForReview('1'))?.tareas[0]).toMatchObject({ hecha: false, hechaPor: null });
+    expect((await repo.porIdProceso('1'))?.tareas[0]).toMatchObject({ hecha: false, hechaPor: null });
   });
 
   it('answers 409 when the radicado is already followed, for the same user', async () => {

@@ -1,4 +1,5 @@
 // Test fixtures for the procesos domain (used by unit and integration tests).
+import { randomUUID } from 'node:crypto';
 import type { Actuacion, Nota, Proceso, Tarea } from '../domain/proceso.js';
 
 /** Owner of the fixture procesos, and the session the specs act as. */
@@ -39,8 +40,14 @@ export function tarea(id: string, overrides: Partial<Tarea> = {}): Tarea {
   };
 }
 
+/**
+ * `id` is the surrogate key and is fresh on every call, exactly like the one
+ * `newProceso` mints: two fixtures may share an `idProceso` to stand for two users
+ * following the same expediente. Override it when the spec has to address the row.
+ */
 export function proceso(idProceso: string, overrides: Partial<Proceso> = {}): Proceso {
   return {
+    id: randomUUID(),
     idProceso,
     radicado: '11001310300120190012300',
     usuarioId: USUARIO.id,

@@ -3,11 +3,12 @@ import { ProcesoEntity } from './proceso.entity.js';
 import { bigintToNumber } from './transformers.js';
 
 @Entity('actuaciones')
-@Index('actuaciones_orden_idx', ['idProceso', 'orden'])
-@Index('actuaciones_no_vista_idx', ['idProceso'], { where: 'no_vista' })
+@Index('actuaciones_orden_idx', ['procesoId', 'orden'])
+@Index('actuaciones_no_vista_idx', ['procesoId'], { where: 'no_vista' })
 export class ActuacionEntity {
-  @PrimaryColumn({ name: 'id_proceso', type: 'text' })
-  idProceso: string;
+  /** Surrogate `procesos.id`, not the CPNU `id_proceso`. */
+  @PrimaryColumn({ name: 'id_proceso', type: 'uuid' })
+  procesoId: string;
 
   /** CPNU `idRegActuacion`. */
   @PrimaryColumn({ type: 'bigint', transformer: bigintToNumber })

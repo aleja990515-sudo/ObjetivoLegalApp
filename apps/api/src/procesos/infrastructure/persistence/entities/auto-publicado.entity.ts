@@ -5,8 +5,9 @@ import { bigintToNumber } from './transformers.js';
 
 @Entity('autos_publicados')
 export class AutoPublicadoEntity {
-  @PrimaryColumn({ name: 'id_proceso', type: 'text' })
-  idProceso: string;
+  /** Surrogate `procesos.id`, not the CPNU `id_proceso`: each copy caches its own results. */
+  @PrimaryColumn({ name: 'id_proceso', type: 'uuid' })
+  procesoId: string;
 
   /** CPNU `idRegActuacion` (no FK: a CPNU refresh rewrites the actuaciones). */
   @PrimaryColumn({ name: 'id_actuacion', type: 'bigint', transformer: bigintToNumber })

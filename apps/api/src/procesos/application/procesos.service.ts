@@ -119,37 +119,37 @@ export class ProcesosService {
 
   /** Office-owned fields only (alias, responsable, etiquetas). */
   async actualizarOficina(usuario: SessionUser, idProceso: string, body: unknown): Promise<ProcesoDetalle> {
-    await this.existente(usuario, idProceso);
+    const proceso = await this.existente(usuario, idProceso);
     const b = cuerpoObjeto(body);
     const cambios: ProcesoOfficeChanges = {};
     if ('alias' in b) cambios.alias = texto(b.alias, LIMITE.alias);
     if ('responsable' in b) cambios.responsable = texto(b.responsable, LIMITE.responsable);
     if ('etiquetas' in b) cambios.etiquetas = normalizarEtiquetas(b.etiquetas);
-    if (Object.keys(cambios).length) await this.procesos.updateOffice(idProceso, cambios);
+    if (Object.keys(cambios).length) await this.procesos.updateOffice(proceso.id, cambios);
     return this.vista(usuario, idProceso);
   }
 
   async eliminar(usuario: SessionUser, idProceso: string): Promise<{ ok: true }> {
-    await this.existente(usuario, idProceso);
-    await this.procesos.delete(idProceso);
+    const proceso = await this.existente(usuario, idProceso);
+    await this.procesos.delete(proceso.id);
     return { ok: true };
   }
 
   async marcarVisto(usuario: SessionUser, idProceso: string): Promise<ProcesoResumen> {
     const proceso = await this.existente(usuario, idProceso);
-    await this.procesos.markSeen(idProceso);
+    await this.procesos.markSeen(proceso.id);
     return resumen({ ...proceso, noVistas: [], nuevaInstancia: false }, hoy());
   }
 
   /** Re-reads CPNU and then looks for new instances; CPNU failures are stored, not raised. */
   async actualizar(usuario: SessionUser, idProceso: string): Promise<ProcesoActualizado> {
-    await this.existente(usuario, idProceso);
-    const refresco = await this.refresher.refresh(idProceso);
+    const antes = await this.existente(usuario, idProceso);
+    const refresco = await this.refresher.refresh(antes);
     if (!refresco.state) throw new ApiError(404, 'Proceso no encontrado.');
     const proceso = await this.existente(usuario, idProceso);
     let instanciasNuevas = 0;
     try {
-      instanciasNuevas = await this.detector.detect(proceso.radicado, proceso);
+      instanciasNuevas = await this.detector.detect(proceso.radicado, [proceso]);
     } catch {
       instanciasNuevas = 0; // a failed search never fails the refresh (legacy behaviour)
     }
@@ -157,10 +157,10 @@ export class ProcesosService {
   }
 
   async agregarNota(usuario: SessionUser, idProceso: string, body: unknown): Promise<ProcesoDetalle> {
-    await this.existente(usuario, idProceso);
+    const proceso = await this.existente(usuario, idProceso);
     const textoNota = texto(cuerpoObjeto(body).texto, LIMITE.nota);
     if (!textoNota) throw new ApiError(400, 'La nota está vacía.');
-    await this.procesos.addNota(idProceso, {
+    await this.procesos.addNota(proceso.id, {
       id: nuevoId(),
       texto: textoNota,
       autor: usuario.nombre,
@@ -170,8 +170,8 @@ export class ProcesosService {
   }
 
   async eliminarNota(usuario: SessionUser, idProceso: string, idNota: string): Promise<ProcesoDetalle> {
-    await this.existente(usuario, idProceso);
-    await this.procesos.deleteNota(idProceso, idNota);
+    const proceso = await this.existente(usuario, idProceso);
+    await this.procesos.deleteNota(proceso.id, idNota);
     return this.vista(usuario, idProceso);
   }
 
@@ -180,7 +180,7 @@ export class ProcesosService {
     const b = cuerpoObjeto(body);
     const titulo = texto(b.titulo, LIMITE.titulo);
     if (!titulo || !fechaValida(b.fecha)) throw new ApiError(400, 'Escribe la actividad y una fecha válida.');
-    await this.procesos.addTarea(idProceso, {
+    await this.procesos.addTarea(proceso.id, {
       id: nuevoId(),
       titulo,
       fecha: b.fecha,
@@ -196,7 +196,7 @@ export class ProcesosService {
   }
 
   async actualizarTarea(usuario: SessionUser, idProceso: string, idTarea: string, body: unknown): Promise<ProcesoDetalle> {
-    await this.tareaExistente(usuario, idProceso, idTarea);
+    const proceso = await this.tareaExistente(usuario, idProceso, idTarea);
     const b = cuerpoObjeto(body);
     const cambios: TareaChanges = {};
     if ('hecha' in b) {
@@ -207,13 +207,13 @@ export class ProcesosService {
     if ('fecha' in b && fechaValida(b.fecha)) cambios.fecha = b.fecha;
     if ('hora' in b) cambios.hora = horaValida(b.hora);
     if ('responsable' in b) cambios.responsable = texto(b.responsable, LIMITE.responsable);
-    await this.procesos.updateTarea(idProceso, idTarea, cambios);
+    await this.procesos.updateTarea(proceso.id, idTarea, cambios);
     return this.vista(usuario, idProceso);
   }
 
   async eliminarTarea(usuario: SessionUser, idProceso: string, idTarea: string): Promise<ProcesoDetalle> {
-    await this.tareaExistente(usuario, idProceso, idTarea);
-    await this.procesos.deleteTarea(idProceso, idTarea);
+    const proceso = await this.tareaExistente(usuario, idProceso, idTarea);
+    await this.procesos.deleteTarea(proceso.id, idTarea);
     return this.vista(usuario, idProceso);
   }
 
@@ -221,6 +221,8 @@ export class ProcesosService {
    * The route guard for every `/procesos/:id` path (legacy 404 "Proceso no
    * encontrado."). The scoped read makes it an ownership check: a proceso of
    * another user is indistinguishable from a missing one, so existence never leaks.
+   * It is also what hands every write below the surrogate `id` of the caller's own
+   * copy, so no write can land on the copy another user keeps of the same expediente.
    */
   private async existente(usuario: SessionUser, idProceso: string): Promise<Proceso> {
     const proceso = await this.procesos.findById(idProceso, usuario.id);
@@ -228,9 +230,10 @@ export class ProcesosService {
     return proceso;
   }
 
-  private async tareaExistente(usuario: SessionUser, idProceso: string, idTarea: string): Promise<void> {
+  private async tareaExistente(usuario: SessionUser, idProceso: string, idTarea: string): Promise<Proceso> {
     const proceso = await this.existente(usuario, idProceso);
     if (!proceso.tareas.some((t) => t.id === idTarea)) throw new ApiError(404, 'Tarea no encontrada.');
+    return proceso;
   }
 
   private async vista(usuario: SessionUser, idProceso: string): Promise<ProcesoDetalle> {

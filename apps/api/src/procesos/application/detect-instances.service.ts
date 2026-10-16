@@ -19,20 +19,33 @@ export class DetectInstancesService {
     private readonly refresher: RefreshProcesoService,
   ) {}
 
-  /** Returns how many instances were added. */
-  async detect(radicado: string, base: Proceso | null): Promise<number> {
-    // Dedup happens inside the owner's own list, so a new instance never inherits
+  /**
+   * Returns how many instances were added. `bases` holds one proceso per owner of
+   * the radicado: every co-follower gets its own copy, off a single CPNU search.
+   */
+  async detect(radicado: string, bases: (Proceso | null)[]): Promise<number> {
+    // Dedup happens inside each owner's own list, so a new instance never inherits
     // nor is compared against another user's. An ownerless base dedupes against
     // nothing and lets the insert decide: `usuario_id` is a uuid, so there is no
     // sentinel to pass instead of an id (Postgres rejects `''` with 22P02).
-    const known = new Set(
-      (await (base?.usuarioId ? this.procesos.listRefs(base.usuarioId) : Promise.resolve([]))).map((p) => p.idProceso),
+    const conocidos = await Promise.all(
+      bases.map(
+        async (base) =>
+          new Set(
+            (await (base?.usuarioId ? this.procesos.listRefs(base.usuarioId) : Promise.resolve([]))).map(
+              (p) => p.idProceso,
+            ),
+          ),
+      ),
     );
     let added = 0;
     for (const found of await this.cpnu.searchRadicado(radicado)) {
-      if (known.has(String(found.idProceso)) || found.esPrivado) continue;
-      const proceso = await this.refresher.hydrateNew(newInstance(found, radicado, base, ahoraIso()));
-      if (await this.procesos.insert(proceso)) added++;
+      if (found.esPrivado) continue;
+      for (const [indice, base] of bases.entries()) {
+        if (conocidos[indice].has(String(found.idProceso))) continue;
+        const proceso = await this.refresher.hydrateNew(newInstance(found, radicado, base, ahoraIso()));
+        if (await this.procesos.insert(proceso)) added++;
+      }
     }
     return added;
   }
