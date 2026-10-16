@@ -20,6 +20,9 @@ function detalle(parcial: Partial<ProcesoDetalle> = {}): ProcesoDetalle {
     ultimaActuacion: null,
     ultimoAuto: null,
     noVistas: 0,
+    esPrivado: false,
+    estadosNoVistos: 0,
+    estados: [],
     nuevaInstancia: false,
     proximaTarea: null,
     tareasVencidas: 0,
@@ -132,5 +135,35 @@ describe('VistaDetalle', () => {
 
     await waitFor(() => expect(empujar).toHaveBeenCalledWith('/'));
     expect(llamadas.find((l) => l.metodo === 'DELETE')?.url).toBe('/api/procesos/1');
+  });
+
+  it('lista los estados detectados y los marca como revisados con /visto', async () => {
+    const conEstados = detalle({
+      estadosNoVistos: 1,
+      estados: [
+        { procesoId: 'u1', urlEstado: 'https://portal/e/174', numeroEstado: '174', fechaPublicacion: '2026-10-14', radicadoEncontrado: '05001311000320260030200', visto: false, detectadoEn: '2026-10-15T10:00:00.000Z' },
+        { procesoId: 'u1', urlEstado: 'https://portal/e/170', numeroEstado: '170', fechaPublicacion: '2026-10-09', radicadoEncontrado: '05001311000320260030200', visto: true, detectadoEn: '2026-10-10T10:00:00.000Z' },
+      ],
+    });
+    const llamadas = stubDetalle(conEstados, { 'POST /api/procesos/1/visto': conEstados });
+    render(<VistaDetalle id="1" />);
+
+    expect(await screen.findByRole('heading', { name: 'Estados donde aparece' })).toBeInTheDocument();
+    const enlaces = screen.getAllByRole('link', { name: /Estado No\./ });
+    expect(enlaces.map((e) => e.getAttribute('href'))).toEqual(['https://portal/e/174', 'https://portal/e/170']);
+    expect(screen.getByText('Nuevo')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Marcar como revisado' }));
+    await waitFor(() => expect(llamadas.some((l) => l.metodo === 'POST' && l.url === '/api/procesos/1/visto')).toBe(true));
+  });
+
+  it('en un proceso privado avisa que se vigilan los estados y oculta sujetos y actuaciones', async () => {
+    stubDetalle(detalle({ esPrivado: true, sujetos: [], actuaciones: [] }));
+    render(<VistaDetalle id="1" />);
+
+    expect(await screen.findByText(/privado en la Rama Judicial/i)).toBeInTheDocument();
+    expect(screen.getByText('Aún no aparece en ningún estado.')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Sujetos procesales' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Actuaciones/ })).not.toBeInTheDocument();
   });
 });

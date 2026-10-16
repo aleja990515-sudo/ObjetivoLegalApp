@@ -66,4 +66,24 @@ describe('VistaNovedades', () => {
 
     expect(await screen.findByText('No hay novedades pendientes')).toBeInTheDocument();
   });
+
+  it('muestra una novedad de tipo estado con su número y enlace', async () => {
+    stubNovedades([
+      {
+        tipo: 'estado',
+        idProceso: '3',
+        radicado: '05001311000320260030200',
+        alias: 'Reservado',
+        despacho: 'Juzgado 3 Familia',
+        fecha: '2026-10-14',
+        estado: { procesoId: 'u3', urlEstado: 'https://portal/e/174', numeroEstado: '174', fechaPublicacion: '2026-10-14', radicadoEncontrado: '05001311000320260030200', visto: false, detectadoEn: '2026-10-15T10:00:00.000Z' },
+      },
+    ] satisfies Novedad[]);
+    render(<VistaNovedades />);
+
+    const enlace = await screen.findByRole('link', { name: /Reservado/ });
+    expect(enlace).toHaveAttribute('href', '/procesos/3');
+    expect(enlace.closest('li')).toHaveTextContent('Estado');
+    expect(enlace.closest('li')).toHaveTextContent('Estado No. 174');
+  });
 });

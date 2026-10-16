@@ -38,7 +38,7 @@ export function CabeceraProceso({ proceso: p, ocupado, ejecutar }: Props) {
   const d = p.detalle;
   const despacho = typeof d.despacho === 'string' ? d.despacho : null;
   const titulo = p.alias || despacho || 'Proceso';
-  const pendiente = p.noVistas > 0 || p.nuevaInstancia;
+  const pendiente = p.noVistas > 0 || p.estadosNoVistos > 0 || p.nuevaInstancia;
 
   const dato = (etiqueta: string, valor: unknown) => {
     if (valor === null || valor === undefined || valor === '') return null;
@@ -112,6 +112,7 @@ export function CabeceraProceso({ proceso: p, ocupado, ejecutar }: Props) {
           <div className="flex flex-wrap gap-1.5">
             {p.nuevaInstancia && <Badge>Nueva instancia</Badge>}
             {p.noVistas > 0 && <Badge>{p.noVistas} nueva(s)</Badge>}
+            {p.estadosNoVistos > 0 && <Badge>{p.estadosNoVistos} estado(s) nuevo(s)</Badge>}
           </div>
         </div>
         <p className="m-0 font-mono text-sm text-muted-foreground tabular-nums">{fmtRadicado(p.radicado)}</p>

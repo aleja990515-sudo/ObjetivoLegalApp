@@ -39,6 +39,20 @@ export interface Tarea {
   creada: string;
 }
 
+/** Estado del juzgado donde apareció un proceso (`GET /api/procesos/:id`, `estados`). */
+export interface EstadoProceso {
+  procesoId: string;
+  urlEstado: string;
+  numeroEstado: string | null;
+  /** `YYYY-MM-DD`. */
+  fechaPublicacion: string | null;
+  /** Radicado tal como apareció en el LISTADO del estado. */
+  radicadoEncontrado: string;
+  visto: boolean;
+  /** Instante ISO del barrido que lo encontró. */
+  detectadoEn: string;
+}
+
 /** Resumen de un proceso: filas de `GET /api/procesos` y respuestas de mutaciones. */
 export interface ProcesoResumen {
   idProceso: string;
@@ -50,6 +64,10 @@ export interface ProcesoResumen {
   ultimaActuacion: Actuacion | null;
   ultimoAuto: Actuacion | null;
   noVistas: number;
+  /** Reservado en la Rama: se sigue por los estados del juzgado. */
+  esPrivado: boolean;
+  /** Estados detectados que aún no se han revisado (0 si no hay). */
+  estadosNoVistos: number;
   nuevaInstancia: boolean;
   proximaTarea: Tarea | null;
   tareasVencidas: number;
@@ -65,6 +83,8 @@ export interface ProcesoDetalle extends Omit<ProcesoResumen, 'sujetos'> {
   detalle: Record<string, unknown>;
   sujetos: Sujeto[];
   actuaciones: Actuacion[];
+  /** Del más reciente al más antiguo. */
+  estados: EstadoProceso[];
   noVistasIds: number[];
   notas: Nota[];
   tareas: Tarea[];
@@ -75,13 +95,8 @@ export interface ListaProcesos {
   ultimaRevision: string | null;
 }
 
-export interface ProcesoPrivado {
-  idProceso: string;
-  privado: true;
-}
-
 export interface RespuestaAgregar {
-  agregados: (ProcesoResumen | ProcesoPrivado)[];
+  agregados: ProcesoResumen[];
 }
 
 interface NovedadBase {
@@ -93,7 +108,11 @@ interface NovedadBase {
 
 /** Elemento de `GET /api/novedades` (array plano). */
 export type Novedad = NovedadBase &
-  ({ tipo: 'instancia'; fecha: string } | { tipo: 'actuacion'; fecha: string | null; actuacion: Actuacion });
+  (
+    | { tipo: 'instancia'; fecha: string }
+    | { tipo: 'actuacion'; fecha: string | null; actuacion: Actuacion }
+    | { tipo: 'estado'; fecha: string | null; estado: EstadoProceso }
+  );
 
 /** Tarea con su proceso, como la devuelve `GET /api/agenda`. */
 export interface TareaAgenda extends Tarea {

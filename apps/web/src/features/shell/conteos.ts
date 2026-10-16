@@ -3,6 +3,7 @@ import { apiFetch } from '@/lib/api';
 
 interface ProcesoResumen {
   noVistas: number;
+  estadosNoVistos?: number;
 }
 
 /** Cuentas de la barra lateral: novedades (longitud de `/api/novedades`) y actuaciones sin revisar. */
@@ -13,6 +14,6 @@ export async function fetchConteos(): Promise<Conteos> {
   ]);
   return {
     novedades: novedades.length,
-    noVistas: procesos.reduce((suma, p) => suma + p.noVistas, 0),
+    noVistas: procesos.reduce((suma, p) => suma + p.noVistas + (p.estadosNoVistos ?? 0), 0),
   };
 }
