@@ -20,7 +20,7 @@ describe('RefreshProcesoService', () => {
     cpnu.procesos.set('1', { detalle: { despacho: 'J' }, sujetos: [], actuaciones: [actuacion(2), actuacion(1)] });
     const result = await service.refresh('1');
     expect(result).toMatchObject({ nuevas: 1, error: null });
-    const stored = await repo.findById('1');
+    const stored = await repo.findByIdForReview('1');
     expect(stored).toMatchObject({ detalle: { despacho: 'J' }, noVistas: [2], error: null, alias: 'Caso' });
     expect(stored?.ultimaConsulta).toEqual(expect.any(String));
     expect(stored?.notas).toHaveLength(1);
@@ -30,14 +30,14 @@ describe('RefreshProcesoService', () => {
     cpnu.procesos.set('1', new Error('La Rama Judicial respondió 500'));
     const result = await service.refresh('1');
     expect(result).toMatchObject({ nuevas: 0, error: 'La Rama Judicial respondió 500' });
-    const stored = await repo.findById('1');
+    const stored = await repo.findByIdForReview('1');
     expect(stored).toMatchObject({ error: 'La Rama Judicial respondió 500', actuaciones: [actuacion(1)] });
   });
 
   it('does nothing for a proceso deleted meanwhile', async () => {
     cpnu.procesos.set('2', { detalle: {}, sujetos: [], actuaciones: [actuacion(9)] });
     expect(await service.refresh('2')).toEqual({ state: null, nuevas: 0, error: null });
-    expect(await repo.findById('2')).toBeNull();
+    expect(await repo.findByIdForReview('2')).toBeNull();
   });
 
   describe('hydrateNew', () => {
@@ -54,7 +54,7 @@ describe('RefreshProcesoService', () => {
         error: null,
       });
       expect(hydrated.ultimaConsulta).toEqual(expect.any(String));
-      expect(await repo.findById('7')).toBeNull(); // the caller stores it
+      expect(await repo.findByIdForReview('7')).toBeNull(); // the caller stores it
     });
 
     it('keeps the proceso with the error message when CPNU fails', async () => {

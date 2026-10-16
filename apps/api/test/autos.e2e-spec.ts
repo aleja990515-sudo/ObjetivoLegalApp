@@ -6,7 +6,7 @@ import { AUTO_PUBLICADO_REPOSITORY, type AutoPublicadoRepository } from '../src/
 import { PROCESO_REPOSITORY, type ProcesoRepository } from '../src/procesos/domain/proceso.repository.js';
 import { FakePublicaciones } from '../src/procesos/testing/fake-publicaciones.js';
 import { actuacion, proceso } from '../src/procesos/testing/proceso.fixtures.js';
-import { iniciarSesion } from './support/sesion.js';
+import { iniciarSesion, BETO } from './support/sesion.js';
 import { createTestApp } from './support/test-app.js';
 import { truncateAll } from './support/test-database.js';
 
@@ -29,6 +29,7 @@ describe('GET /api/procesos/:id/actuaciones/:actuacionId/auto (e2e)', () => {
   let procesos: ProcesoRepository;
   let autos: AutoPublicadoRepository;
   let cookie: string;
+  let ana: string;
 
   const get = (ruta = RUTA) => request(app.getHttpServer()).get(ruta).set('Cookie', cookie);
 
@@ -37,7 +38,6 @@ describe('GET /api/procesos/:id/actuaciones/:actuacionId/auto (e2e)', () => {
     app = await createTestApp({ publicaciones: portal });
     procesos = app.get(PROCESO_REPOSITORY);
     autos = app.get(AUTO_PUBLICADO_REPOSITORY);
-    cookie = await iniciarSesion(app);
   });
 
   afterAll(async () => {
@@ -49,8 +49,12 @@ describe('GET /api/procesos/:id/actuaciones/:actuacionId/auto (e2e)', () => {
     portal.estados.clear();
     portal.archivos.clear();
     portal.calls.length = 0;
+    // The session is minted after the truncate: it empties `usuarios`, so a cookie from
+    // `beforeAll` would name a deleted user and the seeded proceso would belong to nobody.
+    ({ cookie, usuarioId: ana } = await iniciarSesion(app));
     await procesos.insert(
       proceso('1', {
+        usuarioId: ana,
         radicado: RADICADO,
         actuaciones: [
           actuacion(13, { actuacion: 'Recepción memorial', fecha: '2026-09-16T00:00:00' }),
@@ -72,6 +76,13 @@ describe('GET /api/procesos/:id/actuaciones/:actuacionId/auto (e2e)', () => {
   it('needs a session', async () => {
     const res = await request(app.getHttpServer()).get(RUTA).expect(401);
     expect(res.body).toEqual({ error: 'Inicia sesión.' });
+  });
+
+  it('answers 404 (never 403) on a proceso of another user, without searching the portal', async () => {
+    const { cookie: beto } = await iniciarSesion(app, BETO);
+    const res = await request(app.getHttpServer()).get(RUTA).set('Cookie', beto).expect(404);
+    expect(res.body).toEqual({ error: 'Proceso no encontrado.' });
+    expect(portal.calls).toEqual([]);
   });
 
   it('finds the exacto PDF in the estado of the fijación date and stores it', async () => {

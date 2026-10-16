@@ -1,6 +1,9 @@
 // Test fixtures for the procesos domain (used by unit and integration tests).
 import type { Actuacion, Nota, Proceso, Tarea } from '../domain/proceso.js';
 
+/** Owner of the fixture procesos, and the session the specs act as. */
+export const USUARIO = { id: '3f2a8c10-4d5e-4a6b-8c9d-0e1f2a3b4c5d', nombre: 'Ana' };
+
 export function actuacion(id: number, overrides: Partial<Actuacion> = {}): Actuacion {
   return {
     id,
@@ -40,6 +43,7 @@ export function proceso(idProceso: string, overrides: Partial<Proceso> = {}): Pr
   return {
     idProceso,
     radicado: '11001310300120190012300',
+    usuarioId: USUARIO.id,
     despacho: 'JUZGADO 001 CIVIL DEL CIRCUITO',
     sujetosTexto: 'Demandante: A | Demandado: B',
     detalle: {},

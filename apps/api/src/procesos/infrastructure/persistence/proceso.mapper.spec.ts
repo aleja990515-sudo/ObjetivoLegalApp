@@ -1,4 +1,4 @@
-import { actuacion, nota, proceso, tarea } from '../../testing/proceso.fixtures.js';
+import { actuacion, nota, proceso, tarea, USUARIO } from '../../testing/proceso.fixtures.js';
 import { ActuacionEntity, NotaEntity, ProcesoEntity, SujetoEntity, TareaEntity } from './entities/index.js';
 import { bigintToNumber } from './entities/transformers.js';
 import {
@@ -44,6 +44,12 @@ describe('proceso mapper', () => {
 
   it('round-trips a proceso through entities without losing data or order', () => {
     expect(roundTrip()).toEqual(original);
+  });
+
+  it('round-trips the owner, and keeps an unassigned row as null', () => {
+    expect(roundTrip().usuarioId).toBe(USUARIO.id);
+    const sinDueno = toProcesoEntity(proceso('1', { usuarioId: null }));
+    expect(toProceso({ proceso: sinDueno, actuaciones: [], sujetos: [], notas: [], tareas: [] }).usuarioId).toBeNull();
   });
 
   it('stores unseen actuaciones as flags and keeps CPNU order', () => {

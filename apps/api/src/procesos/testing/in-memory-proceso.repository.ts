@@ -14,6 +14,23 @@ import type { ProcesoRepository } from '../domain/proceso.repository.js';
 
 const clone = <T>(value: T): T => structuredClone(value);
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Postgres refuses to compare a `uuid` column with anything that is not a uuid
+ * (22P02). The scoped owner lookup must do the same, otherwise an ownerless caller
+ * passing `''` would silently filter to nothing here and blow up on the real
+ * adapter with an error nobody had a unit test for.
+ */
+function ownerValido(usuarioId: string): string {
+  if (!UUID.test(usuarioId)) {
+    const error = new Error(`invalid input syntax for type uuid: "${usuarioId}"`) as Error & { code: string };
+    error.code = '22P02';
+    throw error;
+  }
+  return usuarioId;
+}
+
 export class InMemoryProcesoRepository implements ProcesoRepository {
   readonly procesos = new Map<string, Proceso>();
 
@@ -21,16 +38,28 @@ export class InMemoryProcesoRepository implements ProcesoRepository {
     for (const p of initial) this.procesos.set(p.idProceso, clone(p));
   }
 
-  async findAll(): Promise<Proceso[]> {
-    return [...this.procesos.values()].map(clone);
+  async findAll(usuarioId: string): Promise<Proceso[]> {
+    return [...this.procesos.values()].filter((p) => p.usuarioId === usuarioId).map(clone);
   }
 
-  async findById(idProceso: string): Promise<Proceso | null> {
+  async findById(idProceso: string, usuarioId: string): Promise<Proceso | null> {
+    const p = this.procesos.get(idProceso);
+    return p?.usuarioId === usuarioId ? clone(p) : null;
+  }
+
+  async findByIdForReview(idProceso: string): Promise<Proceso | null> {
     const p = this.procesos.get(idProceso);
     return p ? clone(p) : null;
   }
 
-  async listRefs(): Promise<ProcesoRef[]> {
+  async listRefs(usuarioId: string): Promise<ProcesoRef[]> {
+    const owner = ownerValido(usuarioId);
+    return [...this.procesos.values()]
+      .filter((p) => p.usuarioId === owner)
+      .map(({ idProceso, radicado }) => ({ idProceso, radicado }));
+  }
+
+  async listRefsForReview(): Promise<ProcesoRef[]> {
     return [...this.procesos.values()].map(({ idProceso, radicado }) => ({ idProceso, radicado }));
   }
 

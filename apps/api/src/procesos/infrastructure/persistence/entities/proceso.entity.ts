@@ -9,6 +9,11 @@ export class ProcesoEntity {
   @Column({ type: 'text' })
   radicado: string;
 
+  /** Owner: only this user reads and writes the proceso. Null while unassigned. */
+  @Index('procesos_usuario_idx')
+  @Column({ name: 'usuario_id', type: 'uuid', nullable: true })
+  usuarioId: string | null;
+
   // CPNU-owned columns (written only by a refresh).
   @Column({ type: 'text', nullable: true })
   despacho: string | null;

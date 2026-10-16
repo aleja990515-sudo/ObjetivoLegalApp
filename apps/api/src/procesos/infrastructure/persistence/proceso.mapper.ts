@@ -74,6 +74,7 @@ export function toProceso({ proceso, actuaciones, sujetos, notas, tareas }: Proc
   return {
     idProceso: proceso.idProceso,
     radicado: proceso.radicado,
+    usuarioId: proceso.usuarioId ?? null,
     despacho: proceso.despacho,
     sujetosTexto: proceso.sujetosTexto,
     ...toCpnuState(proceso, actuaciones, sujetos),
@@ -93,6 +94,7 @@ export function toProcesoEntity(p: Proceso): ProcesoEntity {
   return Object.assign(new ProcesoEntity(), {
     idProceso: p.idProceso,
     radicado: p.radicado,
+    usuarioId: p.usuarioId,
     despacho: p.despacho,
     sujetosTexto: p.sujetosTexto,
     detalle: p.detalle,

@@ -3,11 +3,13 @@ import { actuacion, nota, proceso, tarea } from '../../src/procesos/testing/proc
 import type { ProcesoCpnuState } from '../../src/procesos/domain/proceso.js';
 import { TypeOrmMetaRepository } from '../../src/procesos/infrastructure/persistence/typeorm-meta.repository.js';
 import { TypeOrmProcesoRepository } from '../../src/procesos/infrastructure/persistence/typeorm-proceso.repository.js';
+import { BETO, asegurarUsuarioActivo } from '../support/sesion.js';
 import { createTestDataSource, truncateAll } from '../support/test-database.js';
 
 describe('TypeOrmProcesoRepository (Postgres)', () => {
   let dataSource: DataSource;
   let repo: TypeOrmProcesoRepository;
+  let ana: string;
 
   beforeAll(async () => {
     dataSource = await createTestDataSource();
@@ -20,41 +22,58 @@ describe('TypeOrmProcesoRepository (Postgres)', () => {
 
   beforeEach(async () => {
     await truncateAll(dataSource);
+    // `procesos.usuario_id` is a real FK, so the owner row must exist before inserting.
+    ana = await asegurarUsuarioActivo(dataSource);
   });
 
-  const full = proceso('101', {
-    detalle: { despacho: 'JUZGADO 1', claseProceso: 'Verbal', nested: { a: [1, 2] } },
-    sujetos: [
-      { tipo: 'Demandante', nombre: 'A' },
-      { tipo: 'Demandado', nombre: 'B' },
-    ],
-    actuaciones: [actuacion(9_000_000_003, { cons: 3 }), actuacion(2), actuacion(1)],
-    noVistas: [9_000_000_003],
-    ultimaConsulta: '2026-02-02T11:00:00.123Z',
-    alias: 'Caso A',
-    responsable: 'Luis',
-    etiquetas: ['civil', 'urgente'],
-    nuevaInstancia: true,
-    notas: [nota('n2', { fecha: '2026-02-03T00:00:00.000Z' }), nota('n1')],
-    tareas: [tarea('t1', { hora: '09:30', idActuacion: '2' }), tarea('t2', { fecha: '2026-12-31' })],
-  });
+  // Built per test: `ana` only exists after `beforeEach` truncates the tables and recreates the row.
+  const full = () =>
+    proceso('101', {
+      usuarioId: ana,
+      detalle: { despacho: 'JUZGADO 1', claseProceso: 'Verbal', nested: { a: [1, 2] } },
+      sujetos: [
+        { tipo: 'Demandante', nombre: 'A' },
+        { tipo: 'Demandado', nombre: 'B' },
+      ],
+      actuaciones: [actuacion(9_000_000_003, { cons: 3 }), actuacion(2), actuacion(1)],
+      noVistas: [9_000_000_003],
+      ultimaConsulta: '2026-02-02T11:00:00.123Z',
+      alias: 'Caso A',
+      responsable: 'Luis',
+      etiquetas: ['civil', 'urgente'],
+      nuevaInstancia: true,
+      notas: [nota('n2', { fecha: '2026-02-03T00:00:00.000Z' }), nota('n1')],
+      tareas: [tarea('t1', { hora: '09:30', idActuacion: '2' }), tarea('t2', { fecha: '2026-12-31' })],
+    });
 
   it('inserts and reads back a full aggregate', async () => {
-    expect(await repo.insert(full)).toBe(true);
-    expect(await repo.findById('101')).toEqual(full);
-    expect(await repo.findAll()).toEqual([full]);
-    expect(await repo.listRefs()).toEqual([{ idProceso: '101', radicado: full.radicado }]);
+    expect(await repo.insert(full())).toBe(true);
+    expect(await repo.findById('101', ana)).toEqual(full());
+    expect(await repo.findAll(ana)).toEqual([full()]);
+    expect(await repo.listRefs(ana)).toEqual([{ idProceso: '101', radicado: full().radicado }]);
+  });
+
+  it('scopes the reads to the owner and keeps the review scope global', async () => {
+    const beto = await asegurarUsuarioActivo(dataSource, BETO);
+    await repo.insert(full());
+    await repo.insert(proceso('202', { usuarioId: beto }));
+
+    expect(await repo.findById('101', beto)).toBeNull();
+    expect(await repo.findAll(beto)).toEqual([expect.objectContaining({ idProceso: '202' })]);
+    expect(await repo.listRefs(beto)).toEqual([{ idProceso: '202', radicado: full().radicado }]);
+    expect(await repo.findByIdForReview('101')).toEqual(full());
+    expect((await repo.listRefsForReview()).map((r) => r.idProceso).sort()).toEqual(['101', '202']);
   });
 
   it('does not insert the same idProceso twice', async () => {
-    await repo.insert(full);
-    expect(await repo.insert(proceso('101', { alias: 'otro' }))).toBe(false);
-    expect((await repo.findById('101'))?.alias).toBe('Caso A');
+    await repo.insert(full());
+    expect(await repo.insert(proceso('101', { usuarioId: ana, alias: 'otro' }))).toBe(false);
+    expect((await repo.findById('101', ana))?.alias).toBe('Caso A');
   });
 
   it('returns null for unknown procesos and deletes with cascade', async () => {
-    expect(await repo.findById('nope')).toBeNull();
-    await repo.insert(full);
+    expect(await repo.findById('nope', ana)).toBeNull();
+    await repo.insert(full());
     expect(await repo.delete('101')).toBe(true);
     expect(await repo.delete('101')).toBe(false);
     const [{ count }] = await dataSource.query('SELECT count(*)::int AS count FROM actuaciones');
@@ -72,10 +91,10 @@ describe('TypeOrmProcesoRepository (Postgres)', () => {
     });
 
     it('writes only CPNU-owned data', async () => {
-      await repo.insert(full);
+      await repo.insert(full());
       const result = await repo.updateCpnuState('101', fetched);
       expect(result?.noVistas).toEqual([4, 9_000_000_003]);
-      const after = await repo.findById('101');
+      const after = await repo.findById('101', ana);
       expect(after).toMatchObject({
         detalle: { despacho: 'TRIBUNAL' },
         sujetos: [{ tipo: 'Demandante', nombre: 'Z' }],
@@ -86,34 +105,34 @@ describe('TypeOrmProcesoRepository (Postgres)', () => {
         responsable: 'Luis',
         etiquetas: ['civil', 'urgente'],
         nuevaInstancia: true,
-        notas: full.notas,
-        tareas: full.tareas,
+        notas: full().notas,
+        tareas: full().tareas,
       });
       expect(after?.actuaciones.map((a) => a.id)).toEqual([4, 9_000_000_003, 2, 1]);
     });
 
     it('prunes unseen ids that are not among the actuaciones', async () => {
-      await repo.insert(full);
+      await repo.insert(full());
       const result = await repo.updateCpnuState('101', (c) => ({ ...c, noVistas: [...c.noVistas, 777] }));
       expect(result?.noVistas).toEqual([9_000_000_003]);
     });
 
     it('updates only the error when the actuaciones did not change', async () => {
-      await repo.insert(full);
+      await repo.insert(full());
       await repo.updateCpnuState('101', (c) => ({ ...c, error: 'La Rama Judicial respondió 500' }));
-      const after = await repo.findById('101');
-      expect(after).toEqual({ ...full, error: 'La Rama Judicial respondió 500' });
+      const after = await repo.findById('101', ana);
+      expect(after).toEqual({ ...full(), error: 'La Rama Judicial respondió 500' });
     });
 
     it('never resurrects a deleted proceso', async () => {
       const mutate = vi.fn(fetched);
       expect(await repo.updateCpnuState('nope', mutate)).toBeNull();
       expect(mutate).not.toHaveBeenCalled();
-      expect(await repo.findById('nope')).toBeNull();
+      expect(await repo.findById('nope', ana)).toBeNull();
     });
 
     it('waits for the row lock and keeps office edits committed meanwhile', async () => {
-      await repo.insert(full);
+      await repo.insert(full());
       const runner = dataSource.createQueryRunner();
       await runner.connect();
       await runner.startTransaction();
@@ -132,13 +151,13 @@ describe('TypeOrmProcesoRepository (Postgres)', () => {
       await runner.release();
       await refresh;
 
-      const after = await repo.findById('101');
+      const after = await repo.findById('101', ana);
       expect(after?.alias).toBe('Editado');
       expect(after?.detalle).toEqual({ despacho: 'TRIBUNAL' });
     });
 
     it('does not resurrect a proceso deleted while the refresh waited for the lock', async () => {
-      await repo.insert(full);
+      await repo.insert(full());
       const runner = dataSource.createQueryRunner();
       await runner.connect();
       await runner.startTransaction();
@@ -148,17 +167,17 @@ describe('TypeOrmProcesoRepository (Postgres)', () => {
       await runner.commitTransaction();
       await runner.release();
       expect(await refresh).toBeNull();
-      expect(await repo.findById('101')).toBeNull();
+      expect(await repo.findById('101', ana)).toBeNull();
     });
   });
 
   it('updates office fields and marks everything as seen', async () => {
-    await repo.insert(full);
+    await repo.insert(full());
     expect(await repo.updateOffice('101', { alias: 'Nuevo', etiquetas: [] })).toBe(true);
     expect(await repo.updateOffice('nope', { alias: 'x' })).toBe(false);
     expect(await repo.markSeen('101')).toBe(true);
     expect(await repo.markSeen('nope')).toBe(false);
-    const after = await repo.findById('101');
+    const after = await repo.findById('101', ana);
     expect(after).toMatchObject({
       alias: 'Nuevo',
       etiquetas: [],
@@ -169,23 +188,23 @@ describe('TypeOrmProcesoRepository (Postgres)', () => {
   });
 
   it('adds and deletes notas (newest first)', async () => {
-    await repo.insert(full);
+    await repo.insert(full());
     expect(await repo.addNota('101', nota('n3', { fecha: '2026-02-04T00:00:00.000Z' }))).toBe(true);
     expect(await repo.addNota('nope', nota('n4'))).toBe(false);
-    expect((await repo.findById('101'))?.notas.map((n) => n.id)).toEqual(['n3', 'n2', 'n1']);
+    expect((await repo.findById('101', ana))?.notas.map((n) => n.id)).toEqual(['n3', 'n2', 'n1']);
     expect(await repo.deleteNota('101', 'n2')).toBe(true);
     expect(await repo.deleteNota('101', 'n2')).toBe(false);
-    expect((await repo.findById('101'))?.notas.map((n) => n.id)).toEqual(['n3', 'n1']);
+    expect((await repo.findById('101', ana))?.notas.map((n) => n.id)).toEqual(['n3', 'n1']);
   });
 
   it('adds, updates and deletes tareas (creation order)', async () => {
-    await repo.insert(full);
+    await repo.insert(full());
     expect(await repo.addTarea('101', tarea('t3'))).toBe(true);
     expect(await repo.updateTarea('101', 't1', { hecha: true, hechaPor: 'Ana', fecha: '2026-04-01' })).toBe(true);
     expect(await repo.updateTarea('101', 'zz', { hecha: true })).toBe(false);
     expect(await repo.updateTarea('101', 't1', {})).toBe(true);
     expect(await repo.deleteTarea('101', 't2')).toBe(true);
-    const tareas = (await repo.findById('101'))?.tareas;
+    const tareas = (await repo.findById('101', ana))?.tareas;
     expect(tareas?.map((t) => t.id)).toEqual(['t1', 't3']);
     expect(tareas?.[0]).toMatchObject({ hecha: true, hechaPor: 'Ana', fecha: '2026-04-01', hora: '09:30' });
   });

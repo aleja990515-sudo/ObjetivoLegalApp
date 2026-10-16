@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, In, type EntityManager } from 'typeorm';
+import { DataSource, In, type EntityManager, type FindOptionsWhere } from 'typeorm';
 import type {
   Nota,
   Proceso,
@@ -41,15 +41,20 @@ const sameIds = (a: number[], b: number[]) => a.length === b.length && new Set([
 export class TypeOrmProcesoRepository implements ProcesoRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  async findAll(): Promise<Proceso[]> {
+  async findAll(usuarioId: string): Promise<Proceso[]> {
     const m = this.dataSource.manager;
     // One query per table (no N+1); children are grouped in memory.
-    const [procesos, actuaciones, sujetos, notas, tareas] = await Promise.all([
-      m.find(ProcesoEntity, { order: { agregado: 'ASC', idProceso: 'ASC' } }),
-      m.find(ActuacionEntity),
-      m.find(SujetoEntity),
-      m.find(NotaEntity),
-      m.find(TareaEntity),
+    const procesos = await m.find(ProcesoEntity, {
+      where: { usuarioId },
+      order: { agregado: 'ASC', idProceso: 'ASC' },
+    });
+    const ids = procesos.map((p) => p.idProceso);
+    if (!ids.length) return [];
+    const [actuaciones, sujetos, notas, tareas] = await Promise.all([
+      m.find(ActuacionEntity, { where: { idProceso: In(ids) } }),
+      m.find(SujetoEntity, { where: { idProceso: In(ids) } }),
+      m.find(NotaEntity, { where: { idProceso: In(ids) } }),
+      m.find(TareaEntity, { where: { idProceso: In(ids) } }),
     ]);
     const byProceso = {
       actuaciones: groupBy(actuaciones),
@@ -68,22 +73,39 @@ export class TypeOrmProcesoRepository implements ProcesoRepository {
     );
   }
 
-  async findById(idProceso: string): Promise<Proceso | null> {
+  async findById(idProceso: string, usuarioId: string): Promise<Proceso | null> {
+    return this.leer({ idProceso, usuarioId });
+  }
+
+  async findByIdForReview(idProceso: string): Promise<Proceso | null> {
+    return this.leer({ idProceso });
+  }
+
+  async listRefs(usuarioId: string): Promise<ProcesoRef[]> {
+    return this.refs({ usuarioId });
+  }
+
+  async listRefsForReview(): Promise<ProcesoRef[]> {
+    return this.refs({});
+  }
+
+  private async leer(where: FindOptionsWhere<ProcesoEntity>): Promise<Proceso | null> {
     const m = this.dataSource.manager;
-    const proceso = await m.findOneBy(ProcesoEntity, { idProceso });
+    const proceso = await m.findOneBy(ProcesoEntity, where);
     if (!proceso) return null;
-    const where = { idProceso };
+    const hijos = { idProceso: proceso.idProceso };
     const [actuaciones, sujetos, notas, tareas] = await Promise.all([
-      m.findBy(ActuacionEntity, where),
-      m.findBy(SujetoEntity, where),
-      m.findBy(NotaEntity, where),
-      m.findBy(TareaEntity, where),
+      m.findBy(ActuacionEntity, hijos),
+      m.findBy(SujetoEntity, hijos),
+      m.findBy(NotaEntity, hijos),
+      m.findBy(TareaEntity, hijos),
     ]);
     return toProceso({ proceso, actuaciones, sujetos, notas, tareas });
   }
 
-  async listRefs(): Promise<ProcesoRef[]> {
+  private async refs(where: FindOptionsWhere<ProcesoEntity>): Promise<ProcesoRef[]> {
     const rows = await this.dataSource.manager.find(ProcesoEntity, {
+      where,
       select: { idProceso: true, radicado: true },
       order: { agregado: 'ASC', idProceso: 'ASC' },
     });

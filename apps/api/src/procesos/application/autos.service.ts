@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ApiError } from '../../common/http/api-error.js';
+import type { SessionUser } from '../../auth/domain/session.js';
 import { isoMs } from '../../common/time/temporal.js';
 import { AUTO_PUBLICADO_REPOSITORY, type AutoPublicado, type AutoPublicadoRepository } from '../domain/auto-publicado.repository.js';
 import {
@@ -38,8 +39,9 @@ export class AutosService {
     @Inject(PUBLICACIONES_PORT) private readonly portal: PublicacionesPort,
   ) {}
 
-  async auto(idProceso: string, idActuacion: number): Promise<ResultadoAuto> {
-    const proceso = await this.procesos.findById(idProceso);
+  async auto(usuario: SessionUser, idProceso: string, idActuacion: number): Promise<ResultadoAuto> {
+    // Scoped read: a foreign proceso is "not found", never "forbidden".
+    const proceso = await this.procesos.findById(idProceso, usuario.id);
     if (!proceso) throw new ApiError(404, 'Proceso no encontrado.');
     const actuacion = proceso.actuaciones.find((a) => a.id === idActuacion);
     if (!actuacion) throw new ApiError(404, 'Actuación no encontrada.');

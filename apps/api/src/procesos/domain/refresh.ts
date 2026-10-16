@@ -44,12 +44,14 @@ export function newProceso(
   found: ProcesoEncontrado,
   radicado: string,
   agregadoPor: string,
+  usuarioId: string | null,
   now: string,
   extra: Partial<Proceso> = {},
 ): Proceso {
   return {
     idProceso: String(found.idProceso),
     radicado,
+    usuarioId,
     alias: '',
     despacho: found.despacho,
     sujetosTexto: found.sujetosProcesales,
@@ -75,7 +77,7 @@ export function newProceso(
  * the tribunal). It inherits the office data of the followed instance.
  */
 export function newInstance(found: ProcesoEncontrado, radicado: string, base: Proceso | null, now: string): Proceso {
-  return newProceso(found, radicado, AUTOMATIC_REVIEW_AUTHOR, now, {
+  return newProceso(found, radicado, AUTOMATIC_REVIEW_AUTHOR, base?.usuarioId ?? null, now, {
     alias: base?.alias ? `${base.alias}${NEW_INSTANCE_SUFFIX}` : '',
     responsable: base?.responsable || '',
     etiquetas: [...(base?.etiquetas ?? [])],

@@ -5,6 +5,7 @@ import { META_REPOSITORY, META_ULTIMA_REVISION, type MetaRepository } from '../s
 import { PROCESO_REPOSITORY, type ProcesoRepository } from '../src/procesos/domain/proceso.repository.js';
 import { encontrado, FakeCpnu } from '../src/procesos/testing/fake-cpnu.js';
 import { actuacion, proceso } from '../src/procesos/testing/proceso.fixtures.js';
+import { asegurarUsuarioActivo, BETO } from './support/sesion.js';
 import { createTestApp } from './support/test-app.js';
 import { truncateAll } from './support/test-database.js';
 
@@ -14,6 +15,7 @@ describe('Review: /api/cron and /api/salud (e2e)', () => {
   let app: NestExpressApplication;
   let cpnu: FakeCpnu;
   let procesos: ProcesoRepository;
+  let ana: string;
   const sleep = vi.fn(async (_ms: number) => undefined);
 
   beforeAll(async () => {
@@ -28,6 +30,8 @@ describe('Review: /api/cron and /api/salud (e2e)', () => {
 
   beforeEach(async () => {
     await truncateAll(app.get(DataSource));
+    // The cron has no session, but `procesos.usuario_id` is still a real FK.
+    ana = await asegurarUsuarioActivo(app.get(DataSource));
     cpnu.radicados.clear();
     cpnu.procesos.clear();
     sleep.mockClear();
@@ -42,7 +46,7 @@ describe('Review: /api/cron and /api/salud (e2e)', () => {
     });
 
     it('reviews every proceso and stores the results in Postgres', async () => {
-      await procesos.insert(proceso('1', { radicado: RADICADO, alias: 'Caso', actuaciones: [actuacion(1)] }));
+      await procesos.insert(proceso('1', { usuarioId: ana, radicado: RADICADO, alias: 'Caso', actuaciones: [actuacion(1)] }));
       cpnu.procesos.set('1', { detalle: { despacho: 'J' }, sujetos: [], actuaciones: [actuacion(2), actuacion(1)] });
       cpnu.radicados.set(RADICADO, [encontrado('1'), encontrado('2')]);
 
@@ -52,14 +56,31 @@ describe('Review: /api/cron and /api/salud (e2e)', () => {
         .expect(200);
 
       expect(res.body).toEqual({ nuevas: 1, instancias: 1, errores: 0 });
-      expect(await procesos.findById('1')).toMatchObject({ noVistas: [2], alias: 'Caso', detalle: { despacho: 'J' } });
-      expect(await procesos.findById('2')).toMatchObject({
+      expect(await procesos.findByIdForReview('1')).toMatchObject({ noVistas: [2], alias: 'Caso', detalle: { despacho: 'J' } });
+      expect(await procesos.findByIdForReview('2')).toMatchObject({
         alias: 'Caso (nueva instancia)',
         nuevaInstancia: true,
         agregadoPor: 'Revisión automática',
       });
       expect(await app.get<MetaRepository>(META_REPOSITORY).get(META_ULTIMA_REVISION)).toEqual(expect.any(String));
       expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([1000, 500]);
+    });
+
+    it('refreshes the procesos of every user: the cron reads in the system scope', async () => {
+      const beto = await asegurarUsuarioActivo(app.get(DataSource), BETO);
+      await procesos.insert(proceso('1', { usuarioId: ana, radicado: RADICADO, actuaciones: [actuacion(1)] }));
+      await procesos.insert(proceso('2', { usuarioId: beto, radicado: '05001311001520260010001', actuaciones: [actuacion(1)] }));
+      cpnu.procesos.set('1', { detalle: { despacho: 'J' }, sujetos: [], actuaciones: [actuacion(3), actuacion(1)] });
+      cpnu.procesos.set('2', { detalle: { despacho: 'J' }, sujetos: [], actuaciones: [actuacion(4), actuacion(1)] });
+
+      const res = await request(app.getHttpServer())
+        .post('/api/cron')
+        .set('Authorization', 'Bearer cron-de-prueba')
+        .expect(200);
+
+      expect(res.body).toEqual({ nuevas: 2, instancias: 0, errores: 0 });
+      expect(await procesos.findByIdForReview('1')).toMatchObject({ noVistas: [3] });
+      expect(await procesos.findByIdForReview('2')).toMatchObject({ noVistas: [4] });
     });
 
     it('rejects every request when CRON_SECRET is not configured', async () => {

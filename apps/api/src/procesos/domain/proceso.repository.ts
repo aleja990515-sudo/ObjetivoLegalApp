@@ -12,9 +12,17 @@ export const PROCESO_REPOSITORY = Symbol('PROCESO_REPOSITORY');
 
 /** Persistence port for procesos (aggregate root with actuaciones, sujetos, notas and tareas). */
 export interface ProcesoRepository {
-  findAll(): Promise<Proceso[]>;
-  findById(idProceso: string): Promise<Proceso | null>;
-  listRefs(): Promise<ProcesoRef[]>;
+  /**
+   * Reads are scoped to the owner: a user only ever sees the procesos they added.
+   * Writes stay unscoped because every write path is already guarded upstream.
+   */
+  findAll(usuarioId: string): Promise<Proceso[]>;
+  findById(idProceso: string, usuarioId: string): Promise<Proceso | null>;
+  listRefs(usuarioId: string): Promise<ProcesoRef[]>;
+
+  /** System scope (the cron has no session): reads the procesos of every user. */
+  listRefsForReview(): Promise<ProcesoRef[]>;
+  findByIdForReview(idProceso: string): Promise<Proceso | null>;
 
   /** Inserts a new proceso with its children. Returns `false` when the id already exists. */
   insert(proceso: Proceso): Promise<boolean>;

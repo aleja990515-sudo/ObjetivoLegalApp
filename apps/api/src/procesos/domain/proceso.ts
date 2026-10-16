@@ -75,6 +75,8 @@ export interface Proceso extends ProcesoCpnuState, ProcesoOfficeState {
   idProceso: string;
   /** 23-digit radicado. */
   radicado: string;
+  /** Owner (`usuarios.id`). Only this user reads and writes the proceso. */
+  usuarioId: string | null;
   /** Court name from the radicado search (fallback when `detalle.despacho` is missing). */
   despacho: string | null;
   /** Parties summary from the radicado search. */

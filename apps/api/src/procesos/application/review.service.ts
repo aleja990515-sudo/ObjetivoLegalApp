@@ -52,8 +52,8 @@ export class ReviewService {
     let instancias = 0;
     const radicados = new Map<string, Proceso>();
 
-    for (const { idProceso } of await this.procesos.listRefs()) {
-      const proceso = await this.procesos.findById(idProceso); // read right before, in case it was edited
+    for (const { idProceso } of await this.procesos.listRefsForReview()) {
+      const proceso = await this.procesos.findByIdForReview(idProceso); // read right before, in case it was edited
       if (!proceso) continue;
       if (!radicados.has(proceso.radicado)) radicados.set(proceso.radicado, proceso);
       const result = await this.refresher.refresh(idProceso);

@@ -40,8 +40,8 @@ describe('ReviewService', () => {
 
     expect(cpnu.calls.filter((c) => c.startsWith('search:'))).toEqual([`search:${R1}`, `search:${R2}`]);
     // The first proceso of each radicado is the base of new instances.
-    expect((await repo.findById('9'))?.alias).toBe('Primero (nueva instancia)');
-    expect((await repo.findById('3'))?.error).toBe('La Rama Judicial respondió 500');
+    expect((await repo.findByIdForReview('9'))?.alias).toBe('Primero (nueva instancia)');
+    expect((await repo.findByIdForReview('3'))?.error).toBe('La Rama Judicial respondió 500');
     expect(Temporal.Instant.from((await meta.get(META_ULTIMA_REVISION)) ?? '').epochMilliseconds).toBeGreaterThanOrEqual(before);
   });
 
@@ -56,7 +56,7 @@ describe('ReviewService', () => {
   });
 
   it('skips procesos deleted during the review', async () => {
-    const deleting = vi.spyOn(repo, 'findById').mockImplementationOnce(async () => null);
+    const deleting = vi.spyOn(repo, 'findByIdForReview').mockImplementationOnce(async () => null);
     const result = await service.reviewAll();
     expect(deleting).toHaveBeenCalled();
     expect(cpnu.calls).not.toContain('load:1');
@@ -74,5 +74,25 @@ describe('ReviewService', () => {
     expect(await second).toEqual(await first);
     expect(cpnu.calls.filter((c) => c === 'load:1')).toHaveLength(1);
     expect(service.running).toBe(false);
+  });
+
+  it('reviews the procesos of every user: the cron has no session', async () => {
+    const conOtroDueno = new InMemoryProcesoRepository([
+      proceso('1', { radicado: R1, usuarioId: 'u-ana' }),
+      proceso('4', { radicado: R2, usuarioId: 'u-luis' }),
+      proceso('5', { radicado: R2, usuarioId: 'u-luis' }),
+    ]);
+    const refresher = new RefreshProcesoService(cpnu, conOtroDueno);
+    const otro = new ReviewService(
+      conOtroDueno,
+      meta,
+      refresher,
+      new DetectInstancesService(cpnu, conOtroDueno, refresher),
+      sleep,
+    );
+
+    await otro.reviewAll();
+
+    expect(cpnu.calls.filter((c) => c.startsWith('load:')).sort()).toEqual(['load:1', 'load:4', 'load:5']);
   });
 });

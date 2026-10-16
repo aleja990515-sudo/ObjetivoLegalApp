@@ -3,12 +3,14 @@ import type { AutoPublicado } from '../../src/procesos/domain/auto-publicado.rep
 import { TypeOrmAutoPublicadoRepository } from '../../src/procesos/infrastructure/persistence/typeorm-auto-publicado.repository.js';
 import { TypeOrmProcesoRepository } from '../../src/procesos/infrastructure/persistence/typeorm-proceso.repository.js';
 import { actuacion, proceso } from '../../src/procesos/testing/proceso.fixtures.js';
+import { asegurarUsuarioActivo } from '../support/sesion.js';
 import { createTestDataSource, truncateAll } from '../support/test-database.js';
 
 describe('TypeOrmAutoPublicadoRepository (Postgres)', () => {
   let dataSource: DataSource;
   let repo: TypeOrmAutoPublicadoRepository;
   let procesos: TypeOrmProcesoRepository;
+  let ana: string;
 
   beforeAll(async () => {
     dataSource = await createTestDataSource();
@@ -22,7 +24,9 @@ describe('TypeOrmAutoPublicadoRepository (Postgres)', () => {
 
   beforeEach(async () => {
     await truncateAll(dataSource);
-    await procesos.insert(proceso('101', { actuaciones: [actuacion(9_000_000_001, { actuacion: 'Auto Decide', cons: 1 })] }));
+    // `procesos.usuario_id` is a real uuid FK, so the owner row has to exist for the seed.
+    ana = await asegurarUsuarioActivo(dataSource);
+    await procesos.insert(proceso('101', { usuarioId: ana, actuaciones: [actuacion(9_000_000_001, { actuacion: 'Auto Decide', cons: 1 })] }));
   });
 
   const auto = (overrides: Partial<AutoPublicado> = {}): AutoPublicado => ({
