@@ -36,17 +36,29 @@ Ownership is not modelled at all today. This is not a broken filter, it is a mis
 - [x] T3 Service + controller: `SessionUser` threaded through all 12 `ProcesosController` routes plus `AutosService` (an unlisted caller the port change exposed — it leaked A's PDF links to B); `existente(usuario, id)` is the single ownership guard; `DetectInstancesService` propagates the owner; `documentos` moved to `/procesos/:id/actuaciones/:actuacionId/documentos` and now proves the actuación belongs to the proceso.
 - [x] T4 Agenda + ICS: per-user `<usuarioId>.<firma>` token, HMAC verified with `safeEqual` before any read.
 - [x] T5 Tests: cross-user isolation on every route (404 never 403, owner gets 200 on the same route), cron still refreshes all rows, ICS token isolation, migration backfill run against a real DB.
-- [ ] T6 Docs: README/CLAUDE.md note on per-user visibility. **Not done — pending the C2 decision below.**
+- [x] T6 Docs: `CLAUDE.md` architecture notes on ownership, the surrogate key, the 404 discipline, the per-user ICS token and the orphan rows.
+
+## Resolved (C2) — approved by the maintainer and shipped in `2a7a82b`
+`id_proceso` is no longer the global primary key. A surrogate `procesos.id uuid` carries the key; `id_proceso` is unique **per owner**; the five child tables hang from the surrogate. Route paths and response shapes are unchanged, because reads stay addressed by `idProceso` scoped by owner. Consequences:
+- `POST /api/procesos` now answers **201** for the second user on a radicado a colleague follows, and the 409 means only "you already follow this radicado". The existence oracle is closed.
+- Every **write** is addressed by the surrogate, taken from the aggregate `existente()` returns. Addressing a write by `idProceso` would write into a colleague's copy — this is the single most dangerous mistake available in this codebase now.
+- An independent verification of this unit found a **High regression introduced by it**: relaxing the global PK means an ownerless row never conflicts on `(usuario_id, id_proceso)` (a Postgres unique index treats every NULL as distinct), so the cron appended a duplicate orphan per detected instance on every run, without bound. Closed with a partial unique index on `(id_proceso) WHERE usuario_id IS NULL`, plus a regression test that runs `detect` twice and asserts the row count does not grow.
+- The same verification found the cron fed a newly detected instance to only whichever co-follower won the first-slot race. Now `ReviewService` groups the review by radicado into one base per distinct owner, off a single CPNU search.
+
+## Cross-branch risk found 2026-10-15 (not fixed here)
+Migration timestamp `1791936000000` is used by both this branch (`1791936000000-procesos-id-surrogado.ts`) and `feat/procesos-privados` (`1791936000000-procesos-privados.ts`), which is also on `feat/estados-barrido` and `feat/estados-listado-pdf`. TypeORM tolerates it — `getPendingMigrations()` filters by class name, not by timestamp — but the convention is broken and should be resolved at merge time by renumbering one of them. Not touched here because the correct resolution depends on the merge order.
 
 ## Checks — all observed green 2026-10-15
 | Command | Result |
 | --- | --- |
-| `npm test -w apps/api` | 32 files, **264 passed** |
-| `npm run -w apps/api test:e2e` | 12 files, **148 passed**, exit 0 |
+| `npm test -w apps/api` | 32 files, **268 passed** |
+| `npm run -w apps/api test:e2e` | 14 files, **167 passed**, exit 0 |
 | `npm run -w apps/api typecheck` | clean |
-| `npm run -w apps/api lint` | exit 0; 5 warnings, all pre-existing |
+| `npm run -w apps/api lint` | exit 0; 5 warnings, all pre-existing at HEAD |
 | `npm run -w apps/api build` | exit 0 |
 | `npm run -w apps/web typecheck` / `lint` / `test:web` | clean / clean / 13 files, 45 passed |
+
+Every number above was re-run by the orchestrator after the last write, not reported second-hand. The e2e DB must be recreated before verifying (`docker compose down db-test && docker compose up -d db-test`): it is tmpfs, but a sibling branch left an `es_privado` column and a stray migration row behind in it.
 
 ## Independent verification (adversarial, post-implementation)
 An independent verifier read the diff hunting for a bypass and found 2 critical, 2 high and 3 medium defects. All were fixed except the one below:
@@ -55,12 +67,8 @@ An independent verifier read the diff hunting for a bypass and found 2 critical,
 - **H2** — duplicate display names assigned ownership non-deterministically. Fixed with `DISTINCT ON … ORDER BY u.creado` + a duplicate-name diagnostic.
 - **M1/M2/M3** — `''` owner id crashed the real adapter (`22P02`) while the in-memory double accepted it; `documentos` accepted an actuación id from another proceso. Fixed.
 
-## Open decision (C2) — escalated to the maintainer 2026-10-15
-`procesos.id_proceso` is a **global** primary key, so:
-1. **Existence oracle.** `add()` returns 201 when nobody owns a radicado and 409 when a colleague already follows it, so any authenticated user can probe the caseload of the office.
-2. **No co-following.** Two lawyers on the same expediente can never both follow it — the second hits the 409.
-
-The "Known limitation" section below was written before verification and understates this: it claims the 409 reveals nothing, but the 409 is *unreachable* when nobody owns the file, so it does attribute existence to someone. Proper fix = surrogate PK + `UNIQUE (usuario_id, id_proceso)` + re-pointing the child FKs in `actuaciones`, `sujetos`, `notas`, `tareas`, `autos_publicados`. Deferred pending the maintainer's decision; nothing else in this feature depends on it.
+## Open decision (C2) — RESOLVED 2026-10-15, see "Resolved (C2)" above
+`procesos.id_proceso` used to be a **global** primary key, which made `add()` an existence oracle (201 vs 409) and stopped two lawyers from following the same expediente. The maintainer approved the fix and it shipped in `2a7a82b`. The "Known limitation" section below is therefore obsolete and kept only to record why the original design accepted it.
 
 ## Delivery
 Forecast ~450 authored changed lines including tests. Recommended as **one atomic PR**: splitting it would open a window where reads are scoped but the global ICS token still leaks the whole office. Delivery under `size:exception` / single-PR rationale to be confirmed with the maintainer before the PR is opened; push and PR creation stay human decisions.
@@ -68,8 +76,9 @@ Forecast ~450 authored changed lines including tests. Recommended as **one atomi
 ## Progress
 - 2026-10-15 — feature doc created, branch cut from `main` @ 400aaff.
 - 2026-10-15 — T1–T5 implemented in two delegated passes. An interrupted writer left NUL bytes in two `apps/api/test/` files; both were detected by a byte scan, restored from HEAD, and the scan re-run clean. No corruption reached the final tree.
-- 2026-10-15 — independent adversarial verification run; C1/H1/H2/M1/M2/M3 found and fixed; e2e went 39 failed → 0. C2 escalated below. All checks green.
-- **Nothing is committed yet.** The working tree is dirty on purpose.
+- 2026-10-15 — independent adversarial verification of WU-1; C1/H1/H2/M1/M2/M3 found and fixed; e2e went 39 failed → 0. Committed as `7b4bbb1`.
+- 2026-10-15 — maintainer approved the C2 fix; surrogate key implemented, independently verified (which found a High regression it had introduced), regression closed. Committed as `2a7a82b`.
+- 2026-10-15 — T6 docs committed. Both work units are on `feat/radicados-por-usuario`; **nothing is pushed and no PR is opened** — those remain the maintainer's decisions.
 
 ## Route declaration
 - Exploration: inline (bounded batch, under the evidence budget). CodeGraph unavailable — CLI shim fails (`mise` has no version set) and `codegraph_explore` MCP is not present in this session; fell back to bounded filesystem search.
