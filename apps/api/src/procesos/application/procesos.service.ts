@@ -5,6 +5,10 @@ import type { SessionUser } from '../../auth/domain/session.js';
 import { hoyBogota } from '../domain/bogota-time.js';
 import { ahoraIso } from '../../common/time/temporal.js';
 import { META_REPOSITORY, META_ULTIMA_REVISION, type MetaRepository } from '../domain/meta.repository.js';
+import {
+  ESTADO_PROCESO_REPOSITORY,
+  type EstadoProcesoRepository,
+} from '../domain/estado-proceso.repository.js';
 import { newProceso } from '../domain/refresh.js';
 import {
   compararProcesos,
@@ -58,14 +62,16 @@ export class ProcesosService {
     @Inject(PROCESO_REPOSITORY) private readonly procesos: ProcesoRepository,
     @Inject(META_REPOSITORY) private readonly meta: MetaRepository,
     @Inject(CPNU_PORT) private readonly cpnu: CpnuPort,
+    @Inject(ESTADO_PROCESO_REPOSITORY) private readonly estados: EstadoProcesoRepository,
     private readonly refresher: RefreshProcesoService,
     private readonly detector: DetectInstancesService,
   ) {}
 
   async list(): Promise<ListaProcesos> {
     const today = hoy();
+    const noVistos = await this.estados.contarNoVistos();
     const procesos = (await this.procesos.findAll())
-      .map((p) => resumen(p, today))
+      .map((p) => resumen(p, today, noVistos.get(p.idProceso) ?? 0))
       .sort(compararProcesos);
     return { procesos, ultimaRevision: await this.meta.get(META_ULTIMA_REVISION) };
   }
@@ -99,7 +105,7 @@ export class ProcesosService {
   }
 
   async novedades(): Promise<Novedad[]> {
-    return construirNovedades(await this.procesos.findAll());
+    return construirNovedades(await this.procesos.findAll(), await this.estados.listarNoVistos());
   }
 
   async documentos(idActuacion: string): Promise<DocumentoActuacion[]> {
@@ -131,6 +137,8 @@ export class ProcesosService {
   async marcarVisto(idProceso: string): Promise<ProcesoResumen> {
     const proceso = await this.existente(idProceso);
     await this.procesos.markSeen(idProceso);
+    // A detection is a novedad too, so one route clears both kinds.
+    await this.estados.marcarVistos(idProceso);
     return resumen({ ...proceso, noVistas: [], nuevaInstancia: false }, hoy());
   }
 
@@ -223,6 +231,7 @@ export class ProcesosService {
   }
 
   private async vista(idProceso: string): Promise<ProcesoDetalle> {
-    return detalleCompleto(await this.existente(idProceso), hoy());
+    const proceso = await this.existente(idProceso);
+    return detalleCompleto(proceso, hoy(), await this.estados.listarPorProceso(idProceso));
   }
 }

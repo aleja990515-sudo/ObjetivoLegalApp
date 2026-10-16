@@ -1,9 +1,13 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import {
+  ESTADO_PROCESO_REPOSITORY,
+  type EstadoProcesoRepository,
+} from '../src/procesos/domain/estado-proceso.repository.js';
 import { PROCESO_REPOSITORY, type ProcesoRepository } from '../src/procesos/domain/proceso.repository.js';
 import { encontrado, FakeCpnu } from '../src/procesos/testing/fake-cpnu.js';
-import { actuacion, nota, proceso, tarea } from '../src/procesos/testing/proceso.fixtures.js';
+import { actuacion, estadoProceso, nota, proceso, tarea } from '../src/procesos/testing/proceso.fixtures.js';
 import { iniciarSesion } from './support/sesion.js';
 import { createTestApp } from './support/test-app.js';
 import { truncateAll } from './support/test-database.js';
@@ -14,6 +18,7 @@ describe('Procesos API contract (e2e)', () => {
   let app: NestExpressApplication;
   let cpnu: FakeCpnu;
   let procesos: ProcesoRepository;
+  let estados: EstadoProcesoRepository;
   let cookie: string;
 
   const http = () => request(app.getHttpServer());
@@ -22,6 +27,7 @@ describe('Procesos API contract (e2e)', () => {
     cpnu = new FakeCpnu();
     app = await createTestApp({ cpnu });
     procesos = app.get(PROCESO_REPOSITORY);
+    estados = app.get(ESTADO_PROCESO_REPOSITORY);
     cookie = await iniciarSesion(app);
   });
 
@@ -176,6 +182,30 @@ describe('Procesos API contract (e2e)', () => {
       const res = await http().get('/api/procesos').set('Cookie', cookie).expect(200);
       expect(res.body.ultimaRevision).toBe('2026-10-10T11:00:00.000Z');
     });
+
+    it('reports the unseen estado detections of each proceso, and 0 once they are seen', async () => {
+      await sembrar({ esPrivado: true, sujetosTexto: null });
+      await procesos.insert(proceso('2', { radicado: RADICADO }));
+      await estados.guardar(estadoProceso({ idProceso: '1' }));
+      await estados.guardar(
+        estadoProceso({
+          idProceso: '1',
+          urlEstado: 'https://portal.test/web/publicaciones-procesales/inicio?articleId=170',
+          numeroEstado: '170',
+          visto: true,
+        }),
+      );
+
+      const antes = await http().get('/api/procesos').set('Cookie', cookie).expect(200);
+      expect(antes.body.procesos.map((p: { idProceso: string; estadosNoVistos: number }) => [p.idProceso, p.estadosNoVistos]))
+        .toEqual([['1', 1], ['2', 0]]);
+
+      await http().post('/api/procesos/1/visto').set('Cookie', cookie).expect(200);
+
+      const despues = await http().get('/api/procesos').set('Cookie', cookie).expect(200);
+      expect(despues.body.procesos.map((p: { idProceso: string; estadosNoVistos: number }) => [p.idProceso, p.estadosNoVistos]))
+        .toEqual([['1', 0], ['2', 0]]);
+    });
   });
 
   describe('GET /api/novedades', () => {
@@ -195,6 +225,37 @@ describe('Procesos API contract (e2e)', () => {
         ['actuacion', '2026-01-01T00:00:00'],
       ]);
       expect(res.body[0]).toMatchObject({ idProceso: '1', alias: 'Caso', actuacion: { id: 2 } });
+    });
+
+    it('lists the unseen estado detections of a private proceso and skips the seen ones', async () => {
+      await sembrar({ esPrivado: true, sujetosTexto: null });
+      await estados.guardar(estadoProceso({ idProceso: '1' }));
+      await estados.guardar(
+        estadoProceso({
+          idProceso: '1',
+          urlEstado: 'https://portal.test/web/publicaciones-procesales/inicio?articleId=170',
+          numeroEstado: '170',
+          fechaPublicacion: '2026-10-01',
+          visto: true,
+        }),
+      );
+
+      const res = await http().get('/api/novedades').set('Cookie', cookie).expect(200);
+
+      expect(res.body).toEqual([
+        expect.objectContaining({
+          tipo: 'estado',
+          idProceso: '1',
+          radicado: RADICADO,
+          alias: 'Caso',
+          fecha: '2026-10-14',
+          estado: expect.objectContaining({
+            numeroEstado: '174',
+            radicadoEncontrado: RADICADO,
+            visto: false,
+          }),
+        }),
+      ]);
     });
   });
 
@@ -238,6 +299,45 @@ describe('Procesos API contract (e2e)', () => {
     it('answers 404 "Proceso no encontrado." for an unknown id', async () => {
       const res = await http().get('/api/procesos/999').set('Cookie', cookie).expect(404);
       expect(res.body).toEqual({ error: 'Proceso no encontrado.' });
+    });
+
+    it('answers the estados where a private proceso was published, newest first', async () => {
+      await sembrar({ esPrivado: true, sujetosTexto: null });
+      await estados.guardar(
+        estadoProceso({
+          idProceso: '1',
+          urlEstado: 'https://portal.test/web/publicaciones-procesales/inicio?articleId=170',
+          numeroEstado: '170',
+          fechaPublicacion: '2026-10-01',
+        }),
+      );
+      await estados.guardar(estadoProceso({ idProceso: '1', visto: true }));
+      await estados.guardar(
+        estadoProceso({
+          idProceso: '1',
+          urlEstado: 'https://portal.test/web/publicaciones-procesales/inicio?articleId=169',
+          numeroEstado: '169',
+          fechaPublicacion: null,
+        }),
+      );
+
+      const res = await http().get('/api/procesos/1').set('Cookie', cookie).expect(200);
+
+      expect(res.body.estados.map((e: { numeroEstado: string }) => e.numeroEstado)).toEqual(['174', '170', '169']);
+      expect(res.body.estados[0]).toMatchObject({ visto: true, radicadoEncontrado: RADICADO });
+      expect(res.body).toMatchObject({
+        esPrivado: true,
+        sujetos: [],
+        actuaciones: [],
+        noVistasIds: [],
+        despacho: 'JUZGADO 001 CIVIL DEL CIRCUITO',
+      });
+    });
+
+    it('answers a private proceso without detections with an empty estados array', async () => {
+      await sembrar({ esPrivado: true, sujetosTexto: null, detalle: {} });
+      const res = await http().get('/api/procesos/1').set('Cookie', cookie).expect(200);
+      expect(res.body).toMatchObject({ esPrivado: true, estados: [], sujetos: [], actuaciones: [], detalle: {} });
     });
   });
 
@@ -285,6 +385,21 @@ describe('Procesos API contract (e2e)', () => {
       const res = await http().post('/api/procesos/1/visto').set('Cookie', cookie).expect(200);
       expect(res.body).toMatchObject({ idProceso: '1', noVistas: 0, nuevaInstancia: false });
       expect(res.body).not.toHaveProperty('detalle');
+    });
+
+    it('clears the estado detections of that proceso only, and twice changes nothing', async () => {
+      await sembrar();
+      await procesos.insert(proceso('2', { radicado: RADICADO }));
+      await estados.guardar(estadoProceso({ idProceso: '1' }));
+      await estados.guardar(estadoProceso({ idProceso: '2' }));
+
+      await http().post('/api/procesos/1/visto').set('Cookie', cookie).expect(200);
+      await http().post('/api/procesos/1/visto').set('Cookie', cookie).expect(200);
+
+      const res = await http().get('/api/novedades').set('Cookie', cookie).expect(200);
+      expect(res.body.map((i: { idProceso: string }) => i.idProceso)).toEqual(['2']);
+      expect(await estados.listarPorProceso('1')).toEqual([expect.objectContaining({ visto: true })]);
+      expect(await estados.listarPorProceso('2')).toEqual([expect.objectContaining({ visto: false })]);
     });
   });
 

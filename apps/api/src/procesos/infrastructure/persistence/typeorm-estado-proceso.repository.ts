@@ -38,9 +38,32 @@ export class TypeOrmEstadoProcesoRepository implements EstadoProcesoRepository {
   async listarPorProceso(idProceso: string): Promise<EstadoProceso[]> {
     const rows = await this.dataSource.manager.find(EstadosProcesoEntity, {
       where: { idProceso },
-      order: { detectadoEn: 'DESC', urlEstado: 'ASC' },
+      order: { fechaPublicacion: { direction: 'DESC', nulls: 'LAST' }, urlEstado: 'ASC' },
     });
     return rows.map(toDomain);
+  }
+
+  async listarNoVistos(): Promise<EstadoProceso[]> {
+    const rows = await this.dataSource.manager.find(EstadosProcesoEntity, {
+      where: { visto: false },
+      order: { fechaPublicacion: { direction: 'DESC', nulls: 'LAST' }, urlEstado: 'ASC' },
+    });
+    return rows.map(toDomain);
+  }
+
+  async contarNoVistos(): Promise<Map<string, number>> {
+    const filas = await this.dataSource.manager
+      .createQueryBuilder(EstadosProcesoEntity, 'estado')
+      .select('estado.idProceso', 'idProceso')
+      .addSelect('COUNT(*)', 'total')
+      .where('estado.visto = false')
+      .groupBy('estado.idProceso')
+      .getRawMany<{ idProceso: string; total: string }>();
+    return new Map(filas.map((fila) => [fila.idProceso, Number(fila.total)]));
+  }
+
+  async marcarVistos(idProceso: string): Promise<void> {
+    await this.dataSource.manager.update(EstadosProcesoEntity, { idProceso, visto: false }, { visto: true });
   }
 }
 
