@@ -4,6 +4,7 @@ import { evaluarEstado, ordenarEstados, type EstadoPublicado } from '../../domai
 import { ColaPortal, PORTAL_INTERVALO_MS } from './cola-portal.js';
 import { parseBusqueda, parseCategoriasDepartamento, parseDetalle } from './publicaciones-html.js';
 import {
+  MAX_DESCARGA_BYTES,
   PORTAL_ENFRIAMIENTO_MS,
   PORTAL_INICIO,
   PORTAL_ORIGIN,
@@ -131,10 +132,15 @@ describe('validarRutaPortal', () => {
     expect(() => validarRutaPortal(parseBusqueda(BUSQUEDA_FAMILIA)[0].urlEstado)).not.toThrow();
   });
 
+  it('allows the LISTADO document of an estado, the one deliberate exception', () => {
+    expect(validarRutaPortal(`${PORTAL_ORIGIN}/c/document_library/get_file?uuid=1&groupId=2`).pathname).toBe('/c/document_library/get_file');
+  });
+
   it.each([
-    `${PORTAL_ORIGIN}/c/document_library/get_file?uuid=1&groupId=2`,
-    `${PORTAL_ORIGIN}/C/Document_Library/get_file?uuid=1`,
+    `${PORTAL_ORIGIN}/c/document_library/get_file?groupId=2`,
+    `${PORTAL_ORIGIN}/C/Document_Library/get_file?uuid=1&groupId=2`,
     `${PORTAL_ORIGIN}/%63/document_library/get_file?uuid=1`,
+    `${PORTAL_ORIGIN}/c/document_library/get_file/otro?uuid=1`,
     `${PORTAL_ORIGIN}/documents/6098902/0/AUTOS.pdf`,
     `${PORTAL_ORIGIN}/dtd/x.dtd`,
     `${PORTAL_ORIGIN}/web/guest/otra`,
@@ -266,14 +272,16 @@ describe('PublicacionesHttpAdapter', () => {
     expect(llamadas).toHaveLength(4);
   });
 
-  it('never requests a PDF or another path disallowed by robots.txt', async () => {
+  it('never requests a path robots.txt disallows', async () => {
     const { adapter, llamadas } = montar(() => ({ body: INICIO, ...conSesion }));
     for (const url of [
-      `${PORTAL_ORIGIN}/c/document_library/get_file?uuid=1&groupId=2`,
+      `${PORTAL_ORIGIN}/c/document_library/get_file/otro?uuid=1`,
       `${PORTAL_ORIGIN}/documents/6098902/0/AUTOS.pdf`,
+      `${PORTAL_ORIGIN}/dtd/x.dtd`,
       'https://otro.example.com/web/publicaciones-procesales/inicio',
     ]) {
       await expect(adapter.listarArchivos(estadoDe(url))).rejects.toThrow(/no permitida/);
+      await expect(adapter.descargar(url)).rejects.toThrow(/no permitida/);
     }
     expect(llamadas).toHaveLength(0);
   });
@@ -281,10 +289,44 @@ describe('PublicacionesHttpAdapter', () => {
   it('follows a redirect only to an allowed page', async () => {
     const { adapter, llamadas } = montar((url) => {
       if (esInicio(url)) return { body: INICIO, ...conSesion };
-      return { status: 302, headers: { Location: '/c/document_library/get_file?uuid=1' } };
+      return { status: 302, headers: { Location: '/documents/AUTOS.pdf' } };
     });
     const detalle = parseBusqueda(BUSQUEDA_FAMILIA)[0];
     await expect(adapter.listarArchivos(detalle)).rejects.toThrow(/no permitida/);
-    expect(llamadas.every((l) => !l.url.pathname.startsWith('/c/'))).toBe(true);
+    expect(llamadas.every((l) => !l.url.pathname.startsWith('/documents/'))).toBe(true);
+  });
+});
+
+describe('PublicacionesHttpAdapter.descargar', () => {
+  const LISTADO = `${PORTAL_ORIGIN}/c/document_library/get_file?uuid=9d1b&groupId=6098902`;
+  const PDF = '%PDF-1.4\n1 0 obj\n<< >>\nendobj\n%%EOF\n'; // ASCII: the body bytes are the string bytes
+  const conPdf = (url: URL): Respuesta =>
+    esInicio(url) ? { body: INICIO, ...conSesion } : { body: PDF, headers: { 'Content-Type': 'application/pdf' } };
+
+  it('downloads the document through the shared queue, with the session cookie', async () => {
+    const { adapter, llamadas } = montar(conPdf);
+    const documento = await adapter.descargar(LISTADO);
+
+    expect(Buffer.isBuffer(documento)).toBe(true);
+    expect(documento?.toString('latin1')).toBe(PDF);
+    expect(llamadas.map((l) => l.url.pathname)).toEqual(['/web/publicaciones-procesales/inicio', '/c/document_library/get_file']);
+    expect(llamadas[1].cookie).toBe('JSESSIONID=abc123');
+    expect(llamadas[1].t - (llamadas[0].t + 300)).toBeGreaterThanOrEqual(PORTAL_INTERVALO_MS);
+  });
+
+  it.each([
+    ['HTML', { body: '<html>nada</html>', headers: { 'Content-Type': 'text/html; charset=UTF-8' } }],
+    ['JSON', { body: '{"error":"nope"}', headers: { 'Content-Type': 'application/json' } }],
+    ['an empty body', { body: '', headers: { 'Content-Type': 'application/pdf' } }],
+    ['a body over the cap', { body: 'x'.repeat(MAX_DESCARGA_BYTES + 1), headers: { 'Content-Type': 'application/pdf' } }],
+    ['a portal block (the cool-down is already remembered)', { status: 403 }],
+  ])('answers null for %s', async (_, respuesta) => {
+    const { adapter } = montar((url) => (esInicio(url) ? { body: INICIO, ...conSesion } : respuesta));
+    await expect(adapter.descargar(LISTADO)).resolves.toBeNull();
+  });
+
+  it('answers null for an HTTP error instead of failing the caller', async () => {
+    const { adapter } = montar((url) => (esInicio(url) ? { body: INICIO, ...conSesion } : { status: 404 }));
+    await expect(adapter.descargar(LISTADO)).resolves.toBeNull();
   });
 });
