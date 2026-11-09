@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   // Sin AGENTS.md generado: las reglas del repo viven en CLAUDE.md.
   agentRules: false,
+  experimental: {
+    // Mantener el pipeline de actualizaciones de seguridad de Next.js habilitado.
+    agentUpgrade: 'security',
+  },
   async rewrites() {
     return [{ source: '/api/:path*', destination: `${API_ORIGIN}/api/:path*` }];
   },
